@@ -1,0 +1,5 @@
+.env.compose
+docker/postgres/seed/*.dump
+docker/postgres/seed/*.sql
+docker/postgres/seed/*.sql.gz
+mizan-backend/db_backups/*.dump

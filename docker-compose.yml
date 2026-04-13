@@ -7,10 +7,14 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mizan}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_AUTO_SEED: ${DB_AUTO_SEED:-true}
+      DB_SEED_FILE: ${DB_SEED_FILE:-local.dump}
     ports:
       - "${POSTGRES_PORT_HOST:-5432}:5432"
     volumes:
       - mizan-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/postgres/seed:/seed:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-mizan}"]
       interval: 10s

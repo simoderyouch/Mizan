@@ -119,6 +119,47 @@ If you keep defaults, internal DB works with:
 - `POSTGRES_USER=postgres`
 - `POSTGRES_PASSWORD=postgres`
 
+### 3.1 Initialize Docker DB from your local data (first start)
+
+This stack now supports automatic seed restore for Postgres on first initialization.
+
+How it works:
+- `docker/postgres/init/20-seed-restore.sh` runs only when Postgres volume is empty.
+- If `/seed/${DB_SEED_FILE}` exists, it restores it automatically.
+- Supported formats: `.dump`, `.sql`, `.sql.gz`
+
+Default env values:
+- `DB_AUTO_SEED=true`
+- `DB_SEED_FILE=local.dump`
+
+Place your seed file here before first `docker compose up`:
+
+```bash
+mkdir -p docker/postgres/seed
+cp <your_local_dump_file>.dump docker/postgres/seed/local.dump
+```
+
+If you already have local dumps in this repo:
+
+```bash
+cp mizan-backend/db_backups/source_*.dump docker/postgres/seed/local.dump
+```
+
+Or create a fresh local dump:
+
+```bash
+pg_dump -Fc -h 127.0.0.1 -U postgres -d mizan_local -f docker/postgres/seed/local.dump
+```
+
+Important:
+- Restore runs only on first DB init (empty Docker volume).
+- If DB was already initialized and you want to re-seed, reset volume:
+
+```bash
+docker compose down -v
+docker compose --env-file .env.compose up -d --build
+```
+
 ---
 
 ## 4. Important public URL values (for jury access)
