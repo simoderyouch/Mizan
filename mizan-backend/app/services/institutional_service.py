@@ -1,11 +1,14 @@
 # CRUD operations for School, Filière, and Class institutional entities
 # app/services/institutional_service.py
+from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.institution import Class, Filiere, Promotion, School
+from app.models.institution import Class, Filiere, Promotion, School, VerificationStatus
+from app.models.user import Role, User
+from app.core.security import hash_password
 from app.schemas.institution import (
     ClassCreate,
     FiliereCreate,
@@ -22,11 +25,60 @@ async def create_school(db: AsyncSession, data: SchoolCreate) -> School:
             detail="School with this name already exists"
         )
         
-    school = School(name=data.name)
+    existing_admin = await db.execute(select(User).where(User.email == data.admin_email))
+    if existing_admin.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin email already exists"
+        )
+
+    school = School(
+        name=data.name,
+        official_identifier=data.official_identifier,
+        contact_phone=data.contact_phone,
+        verification_status=VerificationStatus.PENDING
+    )
     db.add(school)
+    await db.flush()
+
+    school_admin = User(
+        email=data.admin_email,
+        password_hash=hash_password(data.admin_password),
+        is_active=False, # Must be verified first
+        role=Role.ADMIN,
+        school_id=school.id,
+    )
+    db.add(school_admin)
     await db.commit()
     await db.refresh(school)
     return school
+
+
+async def verify_school(db: AsyncSession, school_id: UUID, status: str, note: Optional[str] = None) -> School:
+    result = await db.execute(select(School).where(School.id == school_id))
+    school = result.scalars().first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    if status == "VERIFIED":
+        school.verification_status = VerificationStatus.VERIFIED
+        # Activate the associated admin
+        admin_result = await db.execute(select(User).where(User.school_id == school_id, User.role == Role.ADMIN))
+        admin = admin_result.scalars().first()
+        if admin:
+            admin.is_active = True
+    elif status == "REJECTED":
+        school.verification_status = VerificationStatus.REJECTED
+        school.verification_note = note
+    
+    await db.commit()
+    await db.refresh(school)
+    return school
+
+
+async def get_pending_schools(db: AsyncSession) -> list[School]:
+    result = await db.execute(select(School).where(School.verification_status == VerificationStatus.PENDING))
+    return list(result.scalars().all())
 
 
 async def get_all_schools(db: AsyncSession) -> list[School]:
@@ -34,7 +86,43 @@ async def get_all_schools(db: AsyncSession) -> list[School]:
     return list(result.scalars().all())
 
 
+async def delete_school(db: AsyncSession, school_id: UUID) -> None:
+    result = await db.execute(select(School).where(School.id == school_id))
+    school = result.scalars().first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    # In a real system, we might want to delete all related data or use CASCADE
+    # For now, we delete the school (cascade should handle it if configured, or we delete users manually)
+    await db.delete(school)
+    await db.commit()
+
+
+async def toggle_school_active(db: AsyncSession, school_id: UUID, is_active: bool) -> School:
+    result = await db.execute(select(School).where(School.id == school_id))
+    school = result.scalars().first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    # This toggles whether the school is "operational" in our platform
+    # We can use a property or update the is_active of the primary admin
+    admin_result = await db.execute(select(User).where(User.school_id == school_id, User.role == Role.ADMIN))
+    admin = admin_result.scalars().first()
+    if admin:
+        admin.is_active = is_active
+        
+    await db.commit()
+    await db.refresh(school)
+    return school
+
+
 async def create_filiere(db: AsyncSession, data: FiliereCreate) -> Filiere:
+    if not data.school_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="school_id is required"
+        )
+
     school_result = await db.execute(select(School).where(School.id == data.school_id))
     if not school_result.scalars().first():
         raise HTTPException(
@@ -144,3 +232,28 @@ async def get_classes_by_promotion(db: AsyncSession, promotion_id: UUID) -> list
 
     result = await db.execute(select(Class).where(Class.promotion_id == promotion_id))
     return list(result.scalars().all())
+
+
+async def get_school_id_for_filiere(db: AsyncSession, filiere_id: UUID) -> UUID:
+    result = await db.execute(select(Filiere).where(Filiere.id == filiere_id))
+    filiere = result.scalars().first()
+    if not filiere:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Filiere not found")
+    return filiere.school_id
+
+
+async def get_school_id_for_promotion(db: AsyncSession, promotion_id: UUID) -> UUID:
+    result = await db.execute(select(Promotion, Filiere).join(Filiere, Promotion.filiere_id == Filiere.id).where(Promotion.id == promotion_id))
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Promotion not found")
+    _, filiere = row
+    return filiere.school_id
+
+
+async def scope_school_admin_school_id(user: User) -> UUID:
+    if user.role == Role.ADMIN:
+        if not user.school_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin has no school scope")
+        return user.school_id
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin scope required")

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-background": "#1b1c1b",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#dcd9d8",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#f6f3f2",
+                    "on-primary-container": "#bfd6ff",
+                    "inverse-on-surface": "#f3f0ef",
+                    "tertiary": "#38455c",
+                    "secondary-fixed-dim": "#aac7ff",
+                    "secondary-container": "#4090ff",
+                    "secondary": "#005db9",
+                    "on-primary-fixed": "#001b3b",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#00458d",
+                    "on-secondary-container": "#002958",
+                    "surface-variant": "#e4e2e1",
+                    "surface-bright": "#fcf9f8",
+                    "outline-variant": "#c2c6d3",
+                    "on-tertiary-fixed-variant": "#3a475e",
+                    "surface-container": "#f0edec",
+                    "on-surface-variant": "#424751",
+                    "primary-fixed": "#d5e3ff",
+                    "on-tertiary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "primary-container": "#005cae",
+                    "inverse-surface": "#303030",
+                    "surface-container-highest": "#e4e2e1",
+                    "surface-container-high": "#eae7e7",
+                    "secondary-fixed": "#d6e3ff",
+                    "tertiary-container": "#4f5d74",
+                    "tertiary-fixed": "#d5e3ff",
+                    "on-tertiary-fixed": "#0d1c30",
+                    "tertiary-fixed-dim": "#b9c7e2",
+                    "surface-tint": "#075eb0",
+                    "inverse-primary": "#a7c8ff",
+                    "on-surface": "#1b1c1b",
+                    "error": "#ba1a1a",
+                    "on-tertiary-container": "#c8d6f1",
+                    "surface": "#fcf9f8",
+                    "error-container": "#ffdad6",
+                    "primary-fixed-dim": "#a7c8ff",
+                    "on-secondary-fixed": "#001b3e",
+                    "background": "#fcf9f8",
+                    "on-primary-fixed-variant": "#004788",
+                    "outline": "#727783",
+                    "on-error-container": "#93000a",
+                    "primary": "#004584"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-signature-gradient {
+            background: linear-gradient(135deg, #004584 0%, #005cae 100%);
+        }
+        .glass-dock {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+        .radial-progress {
+            --value: 88;
+            --size: 10rem;
+            --thickness: 1rem;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface selection:bg-primary-fixed min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl flex justify-between items-center px-6 py-4 w-full shadow-sm shadow-black/5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-blue-900 dark:text-blue-100" data-icon="spa">spa</span>
+<span class="text-xl font-bold tracking-tight text-blue-900 dark:text-blue-50">MIZAN</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden border border-outline-variant/15 active:scale-95 transition-transform cursor-pointer">
+<img alt="Profile" data-alt="Close-up portrait of a serene young man with short dark hair in a minimal white studio setting, soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnQS5zho9kYc8WAwhZIS1Si6bUu2cpyLFBL0zJ2jUW8Rh1nnbe5wgomNC6wvds5YRwdrbTHWivdrwlVqUvITExrwWotXHn2lWc6aWcfFgaiJ9Jpusrv1Z-KbZ6w0cvDA7nMXSaxNSyue58yI3nDemtQbfyhZkhN3oS3ftYuaPSWRkXY5z6CldF698zp005_YQfeUJHHAb3ruh-IRk2ntIHyspXqL8pScN7NtFPrBpVmJ7oe15WqqcKX85gHnEqeXfzpKmtgb5hDgSd"/>
+</div>
+</header>
+<main class="pt-24 px-6 max-w-lg mx-auto space-y-8">
+<!-- Welcome Section -->
+<section class="space-y-1">
+<h2 class="text-sm font-label uppercase tracking-[0.05em] text-on-surface-variant">Aujourd'hui</h2>
+<h1 class="text-[2.75rem] font-extrabold leading-tight tracking-tight text-on-surface">Bonjour,<br/>Alexandre</h1>
+</section>
+<!-- Readiness Score Bento-style -->
+<div class="grid grid-cols-1 gap-6">
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_8px_24px_rgba(28,27,27,0.04)] border border-outline-variant/15 flex flex-col items-center text-center space-y-6">
+<div class="relative w-48 h-48 flex items-center justify-center">
+<!-- Simple SVG Radial -->
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-low" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" stroke-width="12"></circle>
+<circle cx="96" cy="96" fill="transparent" r="80" stroke="url(#primaryGradient)" stroke-dasharray="502.6" stroke-dashoffset="60" stroke-linecap="round" stroke-width="12"></circle>
+<defs>
+<lineargradient id="primaryGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#004584"></stop>
+<stop offset="100%" stop-color="#005cae"></stop>
+</lineargradient>
+</defs>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-5xl font-extrabold text-on-surface">88%</span>
+<span class="text-[0.75rem] uppercase tracking-widest text-on-surface-variant font-medium">Readiness</span>
+</div>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-bold">Excellent équilibre</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed max-w-[240px]">Votre niveau d'énergie est optimal pour une séance de méditation profonde ce soir.</p>
+</div>
+</div>
+</div>
+<!-- Sanctuaire du jour Card -->
+<section class="space-y-4">
+<div class="flex justify-between items-end px-2">
+<h2 class="text-lg font-bold text-on-surface">Sanctuaire du jour</h2>
+<span class="text-sm font-medium text-primary cursor-pointer">Voir tout</span>
+</div>
+<div class="relative group overflow-hidden rounded-xl aspect-[4/3] shadow-[0_8px_24px_rgba(28,27,27,0.04)] border border-outline-variant/15">
+<img alt="Sanctuaire" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Interior of a minimalist zen meditation room with warm wooden floors, soft ambient light, and a single green plant in the corner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5EGJr0Kq2043bHrStEiXuuVNYaEZnWp_8hedeI6wiFvC3m_Q_4UC9pGQRrT2i3CDyiKKZyxF8ON2nSWK1EmJgwk_6J7G25vdzu6ExThQU_dS_mpPMtD7iw-yd_AGsOtko3p9pZLTqBqUrpznIDZ6VhNqV5O-gsV7FuFo_Q8nSBFq0rhRrKM6dibHqtq4VRmNsK24uyNl_bcVYubXxBIEcfLYmml6yr6WKoSVXK_vB2DNyAt2o4nklr1dk-C3h3wc3h9LjvbXt2Uc5"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-8 w-full flex justify-between items-end">
+<div class="text-white space-y-1">
+<span class="text-[0.65rem] uppercase tracking-widest bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/30">Recommandé</span>
+<h3 class="text-2xl font-bold">Vibration Matinale</h3>
+<p class="text-sm text-white/80">12 min • Méditation Sonore</p>
+</div>
+<button class="w-12 h-12 rounded-full bg-white text-primary flex items-center justify-center active:scale-90 transition-all shadow-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Weekly Trend Sparklines -->
+<section class="space-y-4">
+<h2 class="text-lg font-bold px-2">Tendances de la semaine</h2>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low rounded-lg p-5 border border-outline-variant/15 space-y-4">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<span class="text-[0.65rem] uppercase tracking-widest text-on-surface-variant font-bold">Focus</span>
+<div class="text-2xl font-bold">7.2h</div>
+</div>
+<span class="material-symbols-outlined text-secondary text-lg" data-icon="bolt">bolt</span>
+</div>
+<!-- Simplified Sparkline -->
+<div class="h-10 flex items-end gap-1 px-1">
+<div class="w-full bg-secondary/20 h-[40%] rounded-t-sm"></div>
+<div class="w-full bg-secondary/20 h-[60%] rounded-t-sm"></div>
+<div class="w-full bg-secondary/20 h-[50%] rounded-t-sm"></div>
+<div class="w-full bg-secondary/60 h-[80%] rounded-t-sm"></div>
+<div class="w-full bg-secondary h-full rounded-t-sm"></div>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-5 border border-outline-variant/15 space-y-4">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<span class="text-[0.65rem] uppercase tracking-widest text-on-surface-variant font-bold">Calme</span>
+<div class="text-2xl font-bold">84%</div>
+</div>
+<span class="material-symbols-outlined text-primary text-lg" data-icon="waves">waves</span>
+</div>
+<!-- Simplified Sparkline -->
+<div class="h-10 flex items-end gap-1 px-1">
+<div class="w-full bg-primary/20 h-[70%] rounded-t-sm"></div>
+<div class="w-full bg-primary/20 h-[65%] rounded-t-sm"></div>
+<div class="w-full bg-primary/60 h-[85%] rounded-t-sm"></div>
+<div class="w-full bg-primary/40 h-[75%] rounded-t-sm"></div>
+<div class="w-full bg-primary h-full rounded-t-sm"></div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-6 left-0 right-0 z-50 flex justify-around items-center px-4 py-3 mx-auto fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md rounded-full border border-white/20 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl shadow-[0_8px_24px_rgba(28,27,27,0.04)]">
+<a class="flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 rounded-full w-12 h-12 active:scale-90 transition-all duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="home_max" style="font-variation-settings: 'FILL' 1;">home_max</span>
+</a>
+<a class="flex items-center justify-center text-slate-400 dark:text-slate-500 w-12 h-12 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="wb_sunny">wb_sunny</span>
+</a>
+<a class="flex items-center justify-center text-slate-400 dark:text-slate-500 w-12 h-12 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+</a>
+<a class="flex items-center justify-center text-slate-400 dark:text-slate-500 w-12 h-12 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-full transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</a>
+</nav>
+</body></html>

@@ -9,7 +9,7 @@ pydantic-settings==2.5.2
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
-mistralai==0.1.6
+mistralai[realtime]==2.3.2
 cloudinary==1.38.0
 elevenlabs==1.0.0
 groq==0.4.2

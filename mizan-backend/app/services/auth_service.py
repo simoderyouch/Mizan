@@ -81,10 +81,7 @@ async def request_password_reset(db: AsyncSession, email: str) -> None:
     
     await db.commit()
     
-    try:
-        await asyncio.to_thread(send_otp_email, email, otp, subject="Reset password")
-    except TypeError:
-        await asyncio.to_thread(send_otp_email, email, otp)
+    await asyncio.to_thread(send_otp_email, email, otp)
 
 
 async def verify_reset_otp(db: AsyncSession, email: str, otp: str) -> str:

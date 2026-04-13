@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed": "#d5e3ff",
+                    "on-surface-variant": "#424751",
+                    "primary-container": "#005cae",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-container": "#4f5d74",
+                    "tertiary-fixed": "#d5e3ff",
+                    "inverse-surface": "#303030",
+                    "surface-container-highest": "#e4e2e1",
+                    "surface-container-high": "#eae7e7",
+                    "secondary-fixed": "#d6e3ff",
+                    "on-tertiary-fixed": "#0d1c30",
+                    "tertiary-fixed-dim": "#b9c7e2",
+                    "surface-tint": "#075eb0",
+                    "inverse-primary": "#a7c8ff",
+                    "on-tertiary-container": "#c8d6f1",
+                    "surface": "#fcf9f8",
+                    "error": "#ba1a1a",
+                    "on-surface": "#1b1c1b",
+                    "primary-fixed-dim": "#a7c8ff",
+                    "error-container": "#ffdad6",
+                    "background": "#fcf9f8",
+                    "on-secondary-fixed": "#001b3e",
+                    "on-primary-fixed-variant": "#004788",
+                    "primary": "#004584",
+                    "outline": "#727783",
+                    "on-error-container": "#93000a",
+                    "surface-dim": "#dcd9d8",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#f6f3f2",
+                    "on-background": "#1b1c1b",
+                    "on-primary": "#ffffff",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-primary-container": "#bfd6ff",
+                    "tertiary": "#38455c",
+                    "secondary-container": "#4090ff",
+                    "secondary-fixed-dim": "#aac7ff",
+                    "secondary": "#005db9",
+                    "on-secondary-fixed-variant": "#00458d",
+                    "on-secondary-container": "#002958",
+                    "on-primary-fixed": "#001b3b",
+                    "on-secondary": "#ffffff",
+                    "outline-variant": "#c2c6d3",
+                    "on-tertiary-fixed-variant": "#3a475e",
+                    "surface-variant": "#e4e2e1",
+                    "surface-bright": "#fcf9f8",
+                    "surface-container": "#f0edec"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .voice-sphere {
+            background: radial-gradient(circle at 30% 30%, #a7c8ff, #004584);
+            box-shadow: 0 0 60px rgba(0, 69, 132, 0.2);
+        }
+        .ambient-gradient {
+            background: linear-gradient(135deg, #fcf9f8 0%, #eef2f7 50%, #fcf9f8 100%);
+            background-size: 400% 400%;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(194, 198, 211, 0.15);
+        }
+    </style>
+</head>
+<body class="font-body bg-background text-on-background min-h-screen overflow-hidden selection:bg-primary-fixed">
+<!-- Top Navigation Anchor -->
+<header class="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-8 h-20 w-full bg-[#fcf9f8]/60 dark:bg-slate-950/60 backdrop-blur-xl">
+<div class="text-2xl font-bold tracking-tighter text-[#004584] dark:text-white">Mizan</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex gap-8 items-center">
+<span class="font-['Manrope'] font-medium tracking-tight text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300 cursor-pointer active:scale-95">Accueil</span>
+<span class="font-['Manrope'] font-medium tracking-tight text-[#004584] dark:text-blue-300 border-b-2 border-[#004584] hover:text-[#005cae] transition-colors duration-300 cursor-pointer active:scale-95">Bien-être</span>
+<span class="font-['Manrope'] font-medium tracking-tight text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300 cursor-pointer active:scale-95">Progrès</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#424751] hover:text-[#004584] transition-all">notifications</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline-variant/30">
+<img class="w-full h-full object-cover" data-alt="close-up portrait of a serene young man with short hair looking directly at camera, soft studio lighting, clean background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuagtIrPNjdNo8QN5o4Px8QlpPzZ6KoRJ0L3dJdWIHHLFivEsVeOydgYwqjuupGPudPL7Nsa1zKHdOYj-keKJku8e0umD9w9XWjuQ7G-I8E_vW7oODw6Go4inMWjHxCES_tVCjpFpRMqSXVySDl_qUPrxXI5lWBDAzWq9VGftej0saZmPdHL7GVFEqSeTkjY5S8WBasvff78uSocYpBY1hoHtoT0vkRg2twdgxXOPjvnfPBGed7tj5EjdBQg0vYXRyOYULKoafijZ6"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="relative min-h-screen flex flex-col items-center justify-center ambient-gradient pt-20">
+<!-- Meditative Content -->
+<div class="w-full max-w-4xl px-6 flex flex-col items-center text-center space-y-16">
+<!-- Greeting & Subtitle -->
+<div class="space-y-4">
+<h1 class="text-[3.5rem] font-extrabold tracking-tight text-primary leading-tight">
+                    Bonjour, Marc
+                </h1>
+<p class="text-xl text-on-surface-variant font-medium max-w-md mx-auto">
+                    Je vous écoute... Parlez-moi de votre sommeil et de votre humeur.
+                </p>
+</div>
+<!-- Central Voice Interaction -->
+<div class="relative flex items-center justify-center">
+<!-- Outer Pulse Rings -->
+<div class="absolute w-80 h-80 rounded-full border border-primary/10 animate-ping" style="animation-duration: 3s;"></div>
+<div class="absolute w-96 h-96 rounded-full border border-primary/5 animate-ping" style="animation-duration: 4s;"></div>
+<!-- Main Sphere -->
+<div class="voice-sphere w-64 h-64 rounded-full flex items-center justify-center relative z-10 transition-transform hover:scale-105 duration-700">
+<div class="w-full h-full rounded-full opacity-40 bg-white/20 blur-xl"></div>
+<span class="material-symbols-outlined absolute text-white text-6xl" style="font-variation-settings: 'FILL' 1;">mic</span>
+</div>
+</div>
+<!-- Dynamic Question Card (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-1 gap-6 w-full max-w-lg">
+<div class="surface-container-lowest glass-panel rounded-xl p-8 shadow-[0_8px_24px_rgba(28,27,27,0.04)] transform transition-all duration-500 hover:-translate-y-1">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">bedtime</span>
+</div>
+<span class="font-label text-xs uppercase tracking-widest font-bold text-on-surface-variant">Check-in Matinal</span>
+</div>
+<h2 class="text-2xl font-bold text-on-surface mb-4">Comment s'est passée votre nuit ?</h2>
+<div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-6 py-2 rounded-full bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">Très reposante</button>
+<button class="px-6 py-2 rounded-full border border-outline-variant/30 text-on-surface-variant text-sm font-medium hover:bg-surface-container transition-all">Agitée</button>
+<button class="px-6 py-2 rounded-full border border-outline-variant/30 text-on-surface-variant text-sm font-medium hover:bg-surface-container transition-all">Courte</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Supportive Visual Element (Asymmetric) -->
+<div class="absolute bottom-24 right-12 hidden lg:block w-48 h-48 opacity-20 pointer-events-none">
+<div class="w-full h-full rounded-full bg-gradient-to-br from-primary to-secondary blur-3xl"></div>
+</div>
+</main>
+<!-- Bottom Navigation Shell (Recessed) -->
+<nav class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-8 px-6 py-3 rounded-full w-max bg-white/70 dark:bg-slate-900/70 backdrop-blur-[20px] shadow-[0_8px_24px_rgba(28,27,27,0.04)] border border-white/15 opacity-80 hover:opacity-100 transition-opacity">
+<!-- Accueil -->
+<div class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all cursor-pointer">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1">Accueil</span>
+</div>
+<!-- Bien-être (Active) -->
+<div class="flex flex-col items-center justify-center bg-[#004584] text-white rounded-full w-12 h-12 shadow-lg shadow-blue-900/20 scale-110 duration-500 ease-out cursor-pointer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">self_care</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1 sr-only">Bien-être</span>
+</div>
+<!-- Progrès -->
+<div class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all cursor-pointer">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1">Progrès</span>
+</div>
+<!-- Profil -->
+<div class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all cursor-pointer">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1">Profil</span>
+</div>
+</nav>
+<!-- Background Subtle Grain Texture Overlay -->
+<div class="fixed inset-0 pointer-events-none opacity-[0.03] contrast-150 brightness-100 z-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
+</body></html>

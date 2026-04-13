@@ -1,0 +1,251 @@
+# Mizan Jury Deployment (All-in-One Docker Compose on AWS)
+
+This guide deploys the full project in one stack:
+
+- `mizan-backend` (FastAPI)
+- `mizan-frontend` (web)
+- `mizan-frontend-mobile` (mobile web UI)
+- `postgres` (database)
+
+It is optimized for **competition/jury demo speed**, not for large-scale production.
+
+---
+
+## 1. Files added for this deployment
+
+At repo root:
+- `docker-compose.yml`
+- `.env.compose.example`
+
+Per app:
+- `mizan-backend/Dockerfile`
+- `mizan-backend/docker/entrypoint.sh`
+- `mizan-backend/.dockerignore`
+- `mizan-frontend/Dockerfile`
+- `mizan-frontend/.dockerignore`
+- `mizan-frontend-mobile/Dockerfile`
+- `mizan-frontend-mobile/.dockerignore`
+
+---
+
+## 2. First-time EC2 configuration (detailed)
+
+### 2.1 Launch EC2 instance
+
+Use these recommended settings:
+
+- **AMI**: Ubuntu Server 22.04 LTS (or 24.04)
+- **Instance type**: `t3.medium` minimum (2 vCPU, 4 GB RAM)
+- **Storage**: 30 GB `gp3`
+- **Auto-assign public IP**: enabled
+- **Key pair**: create/download a `.pem` key
+
+### 2.2 Security Group inbound rules
+
+Configure inbound exactly like this:
+
+- `22` (SSH) -> source: **your IP only** (recommended)
+- `3000` (web frontend) -> source: `0.0.0.0/0`
+- `3001` (mobile frontend) -> source: `0.0.0.0/0`
+- `8000` (backend API/docs) -> source: `0.0.0.0/0` (or your IP if you want it private)
+
+Keep database private:
+
+- Do **not** open `5432` publicly unless you explicitly need external DB access.
+
+### 2.3 Connect to instance
+
+From your local machine:
+
+```bash
+chmod 400 <your-key>.pem
+ssh -i <your-key>.pem ubuntu@<EC2_PUBLIC_IP>
+```
+
+### 2.4 Install Docker, Compose plugin, and Git
+
+Run on EC2:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin git
+sudo usermod -aG docker $USER
+newgrp docker
+docker --version
+docker compose version
+```
+
+### 2.5 Optional but recommended
+
+```bash
+sudo timedatectl set-timezone UTC
+sudo apt-get install -y htop
+```
+
+---
+
+## 3. Clone project and prepare environment
+
+```bash
+git clone <YOUR_REPO_URL>
+cd mizan
+cp .env.compose.example .env.compose
+```
+
+Edit `.env.compose`:
+
+```bash
+nano .env.compose
+```
+
+Minimum values to set:
+- `SECRET_KEY`
+- `MISTRAL_API_KEY`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+If you keep defaults, internal DB works with:
+- `POSTGRES_DB=mizan`
+- `POSTGRES_USER=postgres`
+- `POSTGRES_PASSWORD=postgres`
+
+---
+
+## 4. Important public URL values (for jury access)
+
+`NEXT_PUBLIC_API_URL` is baked during frontend build.
+
+Set it in `.env.compose` to your EC2 public origin:
+
+```env
+NEXT_PUBLIC_API_URL=http://<EC2_PUBLIC_IP>:8000
+NEXT_PUBLIC_WS_URL=ws://<EC2_PUBLIC_IP>:8000/ws
+```
+
+If later you add domain + HTTPS:
+
+```env
+NEXT_PUBLIC_API_URL=https://api.your-domain.com
+NEXT_PUBLIC_WS_URL=wss://api.your-domain.com/ws
+```
+
+---
+
+## 5. Run the full stack
+
+Build and start:
+
+```bash
+docker compose --env-file .env.compose up -d --build
+```
+
+Check status:
+
+```bash
+docker compose ps
+docker compose logs -f backend
+```
+
+Backend entrypoint waits for Postgres, runs Alembic migrations, then starts API.
+
+---
+
+## 6. Jury demo URLs
+
+Using EC2 public IP:
+
+- Frontend web: `http://<EC2_PUBLIC_IP>:3000`
+- Frontend mobile web: `http://<EC2_PUBLIC_IP>:3001`
+- Backend health: `http://<EC2_PUBLIC_IP>:8000/health`
+- Backend docs: `http://<EC2_PUBLIC_IP>:8000/docs`
+
+---
+
+## 7. Common operations
+
+Update after new code:
+
+```bash
+git pull
+docker compose --env-file .env.compose up -d --build
+```
+
+Restart:
+
+```bash
+docker compose restart
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+Stop and remove DB volume (danger: data loss):
+
+```bash
+docker compose down -v
+```
+
+---
+
+## 8. Optional simple GitHub -> AWS auto-deploy (compose)
+
+If you still want a basic pipeline:
+
+1. Keep this same Compose setup on EC2.
+2. Use GitHub Actions to SSH into EC2 and run:
+   - `git pull`
+   - `docker compose --env-file .env.compose up -d --build`
+
+You will need GitHub repository secrets:
+- `EC2_HOST`
+- `EC2_USER`
+- `EC2_SSH_PRIVATE_KEY`
+- `EC2_APP_PATH` (example: `/home/ubuntu/mizan`)
+
+---
+
+## 9. Troubleshooting
+
+Frontend cannot reach backend:
+- Verify `NEXT_PUBLIC_API_URL` in `.env.compose`
+- Rebuild frontend containers after changing it:
+  ```bash
+  docker compose --env-file .env.compose up -d --build frontend frontend-mobile
+  ```
+
+Backend crash at startup:
+- Check logs:
+  ```bash
+  docker compose logs -f backend
+  ```
+- Ensure required env values exist (`SECRET_KEY`, provider keys)
+
+Database connection issues:
+- Ensure `db` container is healthy:
+  ```bash
+  docker compose ps
+  docker compose logs -f db
+  ```
+
+---
+
+## 10. Recommended demo mode
+
+For jury stability:
+1. Deploy this stack at least once before presentation day
+2. Seed realistic demo data
+3. Keep one terminal with `docker compose logs -f backend` for quick diagnosis
+4. Do not change env vars right before the demo unless necessary

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#f6f3f2",
+                        "on-tertiary-fixed": "#0d1c30",
+                        "on-secondary-fixed-variant": "#00458d",
+                        "secondary-fixed": "#d6e3ff",
+                        "secondary-fixed-dim": "#aac7ff",
+                        "tertiary": "#38455c",
+                        "inverse-primary": "#a7c8ff",
+                        "on-surface": "#1b1c1b",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#b9c7e2",
+                        "secondary-container": "#4090ff",
+                        "on-background": "#1b1c1b",
+                        "tertiary-fixed": "#d5e3ff",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "outline-variant": "#c2c6d3",
+                        "inverse-on-surface": "#f3f0ef",
+                        "tertiary-container": "#4f5d74",
+                        "surface-container": "#f0edec",
+                        "surface": "#fcf9f8",
+                        "on-tertiary-container": "#c8d6f1",
+                        "surface-tint": "#075eb0",
+                        "on-tertiary-fixed-variant": "#3a475e",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#001b3e",
+                        "surface-bright": "#fcf9f8",
+                        "primary": "#004584",
+                        "secondary": "#005db9",
+                        "primary-container": "#005cae",
+                        "on-primary-fixed": "#001b3b",
+                        "surface-variant": "#e4e2e1",
+                        "on-primary-fixed-variant": "#004788",
+                        "on-error-container": "#93000a",
+                        "outline": "#727783",
+                        "on-secondary-container": "#002958",
+                        "on-primary-container": "#bfd6ff",
+                        "inverse-surface": "#303030",
+                        "primary-fixed": "#d5e3ff",
+                        "on-surface-variant": "#424751",
+                        "surface-container-highest": "#e4e2e1",
+                        "surface-dim": "#dcd9d8",
+                        "surface-container-high": "#eae7e7",
+                        "on-error": "#ffffff",
+                        "background": "#fcf9f8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #fcf9f8;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(194, 198, 211, 0.15);
+        }
+        .signature-gradient {
+            background: linear-gradient(135deg, #004584 0%, #005cae 100%);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-6 overflow-hidden">
+<!-- Atmospheric background elements -->
+<div class="fixed top-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-[#d5e3ff]/30 blur-[120px] -z-10"></div>
+<div class="fixed bottom-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-[#f0edec]/50 blur-[120px] -z-10"></div>
+<main class="w-full max-w-[480px] relative">
+<!-- Logo / Brand Anchor -->
+<div class="text-center mb-12">
+<h1 class="text-3xl font-extrabold tracking-tighter text-primary mb-2">Mizan</h1>
+<p class="text-on-surface-variant font-medium tracking-tight">Votre espace de sérénité numérique</p>
+</div>
+<!-- Login Card -->
+<div class="glass-panel rounded-xl p-8 md:p-12 shadow-[0_8px_24px_rgba(28,27,27,0.04)]">
+<div class="mb-10">
+<h2 class="text-2xl font-bold text-on-surface mb-2">Bienvenue</h2>
+<p class="text-on-surface-variant text-sm font-medium">Connectez-vous pour retrouver votre équilibre.</p>
+</div>
+<form class="space-y-6">
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="block text-[0.75rem] uppercase font-bold tracking-widest text-on-surface-variant ml-1">Adresse e-mail</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">mail</span>
+<input class="w-full pl-12 pr-4 py-4 bg-surface-container-high border-none rounded-full focus:ring-2 focus:ring-primary-fixed focus:bg-primary-fixed transition-all duration-300 text-on-surface placeholder:text-outline/60" placeholder="nom@exemple.com" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center px-1">
+<label class="block text-[0.75rem] uppercase font-bold tracking-widest text-on-surface-variant">Mot de passe</label>
+<a class="text-[0.75rem] font-bold text-primary hover:text-secondary transition-colors" href="#">Mot de passe oublié ?</a>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">lock</span>
+<input class="w-full pl-12 pr-4 py-4 bg-surface-container-high border-none rounded-full focus:ring-2 focus:ring-primary-fixed focus:bg-primary-fixed transition-all duration-300 text-on-surface placeholder:text-outline/60" placeholder="••••••••" type="password"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline cursor-pointer hover:text-primary transition-colors">visibility</span>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="pt-4">
+<button class="signature-gradient w-full py-4 rounded-full text-white font-bold tracking-tight shadow-lg shadow-primary/20 active:scale-[0.98] transition-all duration-300" type="submit">
+                        Se connecter
+                    </button>
+</div>
+</form>
+<!-- Secondary Options -->
+<div class="mt-10 pt-8 border-t border-outline-variant/15 text-center">
+<p class="text-on-surface-variant text-sm mb-6">Ou continuer avec</p>
+<div class="flex gap-4 justify-center">
+<button class="w-14 h-14 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/15 hover:bg-surface transition-all active:scale-95">
+<img alt="Google" class="w-6 h-6" data-alt="Official Google G logo in its brand colors on a clean white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAO9gAUvL7zX_r8nq8x4qMWoCiAptUk2OZcDDBjygRdSRWHzh8zhoGZVTwufyfwOIMsMxuZ4TnPqrC8SiRhcHzL9w8jylz40rlGX9kwQr2Enw9BLoxk0HzuFLvi7XFMb1PnMf-aBZZSQPJSqx6z8y4yR41A_yQX4IQrq-W-UL-YVMqJr3Lncc5NBKN4r0YmfzbRsvQGRtdgiDRpSfuGSrfaEcO4xSVNiEy3gQuItVmeqy8tGlMK-d1R1wlQuKpf24RYk_2OxPcSeyel"/>
+</button>
+<button class="w-14 h-14 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/15 hover:bg-surface transition-all active:scale-95">
+<span class="material-symbols-outlined text-on-surface" style="font-variation-settings: 'FILL' 1;">ios</span>
+</button>
+</div>
+<p class="mt-10 text-sm text-on-surface-variant">
+                    Nouveau sur Mizan ? 
+                    <a class="text-primary font-bold hover:underline ml-1" href="#">Créer un compte</a>
+</p>
+</div>
+</div>
+<!-- Footer Decoration -->
+<div class="mt-12 text-center">
+<div class="inline-flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-full">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="text-[0.65rem] uppercase font-bold tracking-widest text-on-surface-variant">Système Sécurisé</span>
+</div>
+</div>
+</main>
+<!-- Decorative Bottom Detail -->
+<div class="fixed bottom-0 left-0 w-full h-1 signature-gradient opacity-20"></div>
+</body></html>

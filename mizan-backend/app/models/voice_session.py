@@ -23,8 +23,8 @@ class VoiceSession(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("student.id"), nullable=False)
     period: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[VoiceSessionStatus] = mapped_column(String, default=VoiceSessionStatus.IN_PROGRESS)
-    questions: Mapped[List[str]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String, default=VoiceSessionStatus.IN_PROGRESS.value)
+    questions: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, nullable=False)
     transcriptions: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(JSON, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

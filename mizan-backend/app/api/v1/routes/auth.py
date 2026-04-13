@@ -13,7 +13,9 @@ from app.schemas.auth import (
     SetPasswordSchema,
     TokenResponse,
     VerifyOtpSchema,
+    CurrentUserResponse,
 )
+from app.schemas.institution import SchoolCreate, SchoolResponse
 from app.services.auth_service import (
     change_password,
     login,
@@ -24,8 +26,17 @@ from app.services.auth_service import (
     verify_otp,
     verify_reset_otp,
 )
+from app.services.institutional_service import create_school
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.post("/admin/register-school", response_model=SchoolResponse)
+async def handle_register_school_admin(
+    payload: SchoolCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    return await create_school(db, payload)
 
 
 @router.post("/request-activation")
@@ -97,3 +108,15 @@ async def handle_change_password(
 ):
     await change_password(db, current_user.id, payload.old_password, payload.new_password)
     return {"message": "Password changed successfully."}
+
+
+@router.get("/me", response_model=CurrentUserResponse)
+async def handle_get_current_user(
+    current_user: User = Depends(get_current_user),
+):
+    return CurrentUserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+        school_id=current_user.school_id,
+    )

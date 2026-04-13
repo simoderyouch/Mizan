@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#d5e3ff",
+                        "on-surface-variant": "#424751",
+                        "primary-container": "#005cae",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#4f5d74",
+                        "tertiary-fixed": "#d5e3ff",
+                        "inverse-surface": "#303030",
+                        "surface-container-highest": "#e4e2e1",
+                        "surface-container-high": "#eae7e7",
+                        "secondary-fixed": "#d6e3ff",
+                        "on-tertiary-fixed": "#0d1c30",
+                        "tertiary-fixed-dim": "#b9c7e2",
+                        "surface-tint": "#075eb0",
+                        "inverse-primary": "#a7c8ff",
+                        "on-tertiary-container": "#c8d6f1",
+                        "surface": "#fcf9f8",
+                        "error": "#ba1a1a",
+                        "on-surface": "#1b1c1b",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "error-container": "#ffdad6",
+                        "background": "#fcf9f8",
+                        "on-secondary-fixed": "#001b3e",
+                        "on-primary-fixed-variant": "#004788",
+                        "primary": "#004584",
+                        "outline": "#727783",
+                        "on-error-container": "#93000a",
+                        "surface-dim": "#dcd9d8",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f6f3f2",
+                        "on-background": "#1b1c1b",
+                        "on-primary": "#ffffff",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-primary-container": "#bfd6ff",
+                        "tertiary": "#38455c",
+                        "secondary-container": "#4090ff",
+                        "secondary-fixed-dim": "#aac7ff",
+                        "secondary": "#005db9",
+                        "on-secondary-fixed-variant": "#00458d",
+                        "on-secondary-container": "#002958",
+                        "on-primary-fixed": "#001b3b",
+                        "on-secondary": "#ffffff",
+                        "outline-variant": "#c2c6d3",
+                        "on-tertiary-fixed-variant": "#3a475e",
+                        "surface-variant": "#e4e2e1",
+                        "surface-bright": "#fcf9f8",
+                        "surface-container": "#f0edec"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; background-color: #fcf9f8; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(194, 198, 211, 0.15);
+        }
+        .tonal-shift { background-color: #f6f3f2; }
+    </style>
+</head>
+<body class="text-on-background min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="bg-[#fcf9f8]/60 dark:bg-slate-950/60 backdrop-blur-xl fixed top-0 left-0 w-full z-40 flex justify-between items-center px-8 h-20 w-full">
+<div class="text-2xl font-bold tracking-tighter text-[#004584] dark:text-white">Mizan</div>
+<nav class="hidden md:flex items-center gap-8 font-['Manrope'] font-medium tracking-tight">
+<a class="text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300 cursor-pointer active:scale-95" href="#">Accueil</a>
+<a class="text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300 cursor-pointer active:scale-95" href="#">Bien-être</a>
+<a class="text-[#004584] dark:text-blue-300 border-b-2 border-[#004584] transition-colors duration-300 cursor-pointer active:scale-95" href="#">Progrès</a>
+<a class="text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300 cursor-pointer active:scale-95" href="#">Profil</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-primary" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-primary" data-icon="settings">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border border-outline-variant/15">
+<img alt="Avatar de l'étudiant" class="w-full h-full object-cover" data-alt="portrait of a young student with a friendly expression in soft natural lighting professional and minimalist" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDvKylpxY2bC_M5eZwV_BcKBqgJTNZoe6qF7STv8e0KBwEqi_dymayO-HkkGiwVgqDEg1EuzrhpVJqGKOPB95gCYfKdo_WGNMRKZQzBqbquibnzCwJTaQ6LcMHpcFsHyTWsVKDra-XI5xOLpEC54GSxHdV0ZGhi1yf5eO95kcT-SXSEHq6T6AUh-iMn00czMi4gopRQdeYOrXcYFtiqXhh1Sx6IZIiPLf_nPIcgzkhBhsW6RkhAAn5NE15kDx96p2aobGnrDvkhCUS"/>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-8 pt-32">
+<!-- Hero Section -->
+<section class="mb-16">
+<h1 class="text-5xl md:text-[3.5rem] font-extrabold tracking-tight text-on-background mb-4">Mes Objectifs &amp; Équilibre</h1>
+<p class="text-on-surface-variant text-lg max-w-2xl leading-relaxed">Suivez votre progression académique tout en maintenant une harmonie quotidienne. La clarté mène à la sérénité.</p>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Column: Semester Goals (Bento Style) -->
+<div class="lg:col-span-8 space-y-8">
+<div class="flex items-center justify-between">
+<h2 class="text-2xl font-bold tracking-tight">Objectifs du Semestre</h2>
+<span class="text-xs font-bold uppercase tracking-widest text-primary bg-primary-fixed px-3 py-1 rounded-full">Saison Automne</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Major Goal Card -->
+<div class="md:col-span-2 glass-card rounded-xl p-8 shadow-[0_8px_24px_rgba(28,27,27,0.04)] relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-8xl" data-icon="school">school</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-start justify-between mb-6">
+<div>
+<h3 class="text-2xl font-bold mb-2">Réussir mon semestre</h3>
+<p class="text-on-surface-variant">Moyenne visée: 16/20 • 4 modules restants</p>
+</div>
+<span class="text-xl font-bold text-primary">75%</span>
+</div>
+<div class="w-full h-3 bg-surface-container rounded-full overflow-hidden mb-4">
+<div class="h-full bg-gradient-to-r from-primary to-primary-container w-3/4 rounded-full"></div>
+</div>
+<div class="flex gap-4">
+<span class="text-xs font-bold uppercase tracking-wider text-on-surface-variant/70 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="event">event</span> Fin Janvier
+                                </span>
+</div>
+</div>
+</div>
+<!-- Daily Ritual Card -->
+<div class="glass-card rounded-xl p-6 shadow-[0_8px_24px_rgba(28,27,27,0.04)] hover:translate-y-[-4px] transition-transform duration-300">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="self_care">self_care</span>
+</div>
+<h3 class="font-bold">Méditation quotidienne</h3>
+</div>
+<p class="text-sm text-on-surface-variant mb-6 leading-relaxed">Série actuelle: 12 jours consécutifs. Maintenez le rythme matinal.</p>
+<div class="flex items-end justify-between">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-primary"></div>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-primary"></div>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-primary-fixed"></div>
+</div>
+<span class="text-sm font-bold text-on-surface">60% complété</span>
+</div>
+</div>
+<!-- Side Quest/Learning Card -->
+<div class="glass-card rounded-xl p-6 shadow-[0_8px_24px_rgba(28,27,27,0.04)] hover:translate-y-[-4px] transition-transform duration-300">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 rounded-full bg-[#e8f1ff] flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="language">language</span>
+</div>
+<h3 class="font-bold">Apprendre l'Espagnol</h3>
+</div>
+<p class="text-sm text-on-surface-variant mb-6 leading-relaxed">Niveau B2 visé. 45 heures de pratique validées sur 100.</p>
+<div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[45%] rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Insights Section (Tonal Shift) -->
+<div class="bg-surface-container-low rounded-xl p-8 flex flex-col md:flex-row items-center gap-8">
+<div class="md:w-1/3">
+<img alt="Bureau minimaliste" class="rounded-lg shadow-sm" data-alt="minimalist clean desk with a single laptop open notebooks and a plant in soft morning sunlight airy atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDr93HoPvsHpPXFoyqshLnh7OWm7U4Ca829cm_q0SkFR9DkwbA5dymoSQKtKY0TDULWD7ysEd6Lu4wgSuvxHdoTXt1WDD5N3__wtewwk7HvXDCFVi1_WJu6hV2F8r5_ZR6XPYho15KrL-L2-Oretzrvf6f9SOUuM0iwpxs7ASYcubKvlPjEgLKWrSdivJSq7Ha16rxV0X170nCJcY_BdMqmTm5X2B127WXElJKAjEWkCwTeCj2YPrwn9Y2j0e2oQfB-WXU_s8HRRkC"/>
+</div>
+<div class="flex-1">
+<h4 class="text-xl font-bold mb-2">Conseil d'Équilibre</h4>
+<p class="text-on-surface-variant leading-relaxed mb-4 italic">"Votre productivité augmente de 20% après une session de méditation de seulement 10 minutes. N'oubliez pas de respirer entre deux chapitres."</p>
+<button class="px-6 py-2 rounded-full bg-white text-primary font-bold text-sm shadow-sm hover:shadow-md transition-shadow">Voir l'analyse complète</button>
+</div>
+</div>
+</div>
+<!-- Right Column: Task List -->
+<div class="lg:col-span-4 space-y-8">
+<div class="flex items-center justify-between">
+<h2 class="text-2xl font-bold tracking-tight">Tâches du jour</h2>
+<button class="p-2 rounded-full bg-primary text-white shadow-lg active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+</button>
+</div>
+<div class="space-y-4">
+<!-- Task Item -->
+<div class="glass-card rounded-xl p-4 flex items-center gap-4 group cursor-pointer hover:bg-white transition-colors">
+<div class="w-6 h-6 rounded-md border-2 border-outline-variant flex items-center justify-center group-hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-primary opacity-0 group-hover:opacity-100 transition-opacity text-sm" data-icon="check">check</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-on-surface">Réviser Algorithmique</p>
+<span class="text-xs text-on-surface-variant">14:00 • Haute Priorité</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="drag_indicator">drag_indicator</span>
+</div>
+<div class="glass-card rounded-xl p-4 flex items-center gap-4 group cursor-pointer hover:bg-white transition-colors">
+<div class="w-6 h-6 rounded-md border-2 border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary opacity-0 text-sm" data-icon="check">check</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-on-surface">Séance de Yoga (Focus)</p>
+<span class="text-xs text-on-surface-variant">18:30 • Bien-être</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="drag_indicator">drag_indicator</span>
+</div>
+<div class="glass-card rounded-xl p-4 flex items-center gap-4 bg-surface-container/30 opacity-60">
+<div class="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-sm" data-icon="check" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-on-surface line-through">Préparer le TD de Stats</p>
+<span class="text-xs text-on-surface-variant">Terminé ce matin</span>
+</div>
+</div>
+<div class="glass-card rounded-xl p-4 flex items-center gap-4 group cursor-pointer hover:bg-white transition-colors">
+<div class="w-6 h-6 rounded-md border-2 border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary opacity-0 text-sm" data-icon="check">check</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-on-surface">Appel Groupe de Projet</p>
+<span class="text-xs text-on-surface-variant">20:00 • Collaboration</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="drag_indicator">drag_indicator</span>
+</div>
+</div>
+<!-- Check-in Reminder -->
+<div class="p-8 rounded-xl bg-gradient-to-br from-primary-container to-primary text-white relative overflow-hidden shadow-xl shadow-blue-900/20">
+<div class="relative z-10">
+<h4 class="text-xl font-bold mb-2">Check-in du soir</h4>
+<p class="text-white/80 text-sm mb-6 leading-relaxed">Prenez 2 minutes pour évaluer votre journée et préparer demain.</p>
+<button class="w-full py-3 bg-white text-primary font-bold rounded-full hover:bg-surface transition-colors shadow-lg active:scale-95 duration-200">Commencer</button>
+</div>
+<div class="absolute -bottom-4 -right-4 opacity-20">
+<span class="material-symbols-outlined text-[120px]" data-icon="edit_note">edit_note</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-8 px-6 py-3 rounded-full w-max bg-white/70 dark:bg-slate-900/70 backdrop-blur-[20px] shadow-[0_8px_24px_rgba(28,27,27,0.04)] border border-white/15">
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1 hidden lg:block">Accueil</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="self_care">self_care</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1 hidden lg:block">Bien-être</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#004584] text-white rounded-full w-12 h-12 shadow-lg shadow-blue-900/20 scale-110 duration-500 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="analytics" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1 hidden lg:block">Progrès</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest font-bold mt-1 hidden lg:block">Profil</span>
+</a>
+</nav>
+</body></html>

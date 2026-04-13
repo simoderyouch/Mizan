@@ -1,0 +1,22 @@
+# Git ignore rules for Mizan project
+
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+.DS_Store
+node_modules/
+.next/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+node_modules/
+**/node_modules/
+.env
+build/
+dist/
+.next/

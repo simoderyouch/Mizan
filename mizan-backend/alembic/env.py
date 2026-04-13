@@ -8,10 +8,10 @@ import app.models  # noqa
 config = context.config
 settings = get_settings()
 
-sync_url = settings.DATABASE_URL.replace(
+resolved_database_url = settings.resolved_database_url
+sync_url = resolved_database_url.replace(
     "postgresql+asyncpg", "postgresql+psycopg2"
 ).replace("?ssl=require", "?sslmode=require")
-
 config.set_main_option("sqlalchemy.url", sync_url)
 
 if config.config_file_name is not None:

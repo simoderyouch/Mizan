@@ -27,6 +27,7 @@ class ModeSessionResponse(BaseModel):
 class ModeStatItem(BaseModel):
     mode: Mode
     total_minutes: int
+    percentage: float = 0.0
 
 
 class ModeStatsResponse(BaseModel):

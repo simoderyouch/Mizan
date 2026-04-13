@@ -4,19 +4,19 @@ from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GoalCreate(BaseModel):
-    title: str
-    target_value: float
-    unit: str
+    title: str = Field(min_length=1, max_length=120)
+    target_value: float = Field(gt=0)
+    unit: str = Field(min_length=1, max_length=40)
 
 
 class GoalProgressCreate(BaseModel):
     goal_id: UUID
-    value: float
-    note: Optional[str] = None
+    value: float = Field(gt=0)
+    note: Optional[str] = Field(default=None, max_length=300)
 
 
 class GoalResponse(BaseModel):
@@ -52,4 +52,6 @@ class GoalWithProgressResponse(BaseModel):
     today_progress: float
     total_progress: float
     completion_percentage: float
+    remaining_value: float
+    is_achieved: bool
     progress_history: List[GoalProgressResponse]

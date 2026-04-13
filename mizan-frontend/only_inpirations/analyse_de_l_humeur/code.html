@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mizan - Analyse de l'Humeur</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#005cae",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-container": "#4f5d74",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary": "#005db9",
+                    "on-primary-container": "#bfd6ff",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-primary-fixed": "#001b3b",
+                    "inverse-surface": "#303030",
+                    "tertiary-fixed": "#d5e3ff",
+                    "outline-variant": "#c2c6d3",
+                    "surface-dim": "#dcd9d8",
+                    "on-tertiary-fixed": "#0d1c30",
+                    "on-tertiary-fixed-variant": "#3a475e",
+                    "on-secondary-fixed-variant": "#00458d",
+                    "inverse-primary": "#a7c8ff",
+                    "primary": "#004584",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed": "#001b3e",
+                    "on-background": "#1b1c1b",
+                    "surface-container-low": "#f6f3f2",
+                    "primary-fixed": "#d5e3ff",
+                    "outline": "#727783",
+                    "surface-tint": "#075eb0",
+                    "error": "#ba1a1a",
+                    "on-primary": "#ffffff",
+                    "background": "#fcf9f8",
+                    "surface-container-high": "#eae7e7",
+                    "surface-container-highest": "#e4e2e1",
+                    "surface": "#fcf9f8",
+                    "on-primary-fixed-variant": "#004788",
+                    "tertiary-fixed-dim": "#b9c7e2",
+                    "primary-fixed-dim": "#a7c8ff",
+                    "tertiary": "#38455c",
+                    "on-secondary-container": "#002958",
+                    "error-container": "#ffdad6",
+                    "secondary-container": "#4090ff",
+                    "surface-variant": "#e4e2e1",
+                    "surface-container": "#f0edec",
+                    "surface-bright": "#fcf9f8",
+                    "on-surface-variant": "#424751",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed": "#d6e3ff",
+                    "on-tertiary-container": "#c8d6f1",
+                    "secondary-fixed-dim": "#aac7ff",
+                    "on-surface": "#1b1c1b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(194, 198, 211, 0.15); }
+        .chart-line { stroke-dasharray: 1000; stroke-dashoffset: 0; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-2xl shadow-[0_8px_24px_rgba(28,27,27,0.04)] font-['Manrope'] antialiased">
+<div class="flex justify-between items-center px-8 py-4 w-full">
+<div class="text-2xl font-bold tracking-tight text-[#005cae]">Sanctuary</div>
+<nav class="hidden md:flex gap-8">
+<a class="text-stone-500 font-medium hover:opacity-80 transition-opacity" href="#">Home</a>
+<a class="text-[#005cae] font-semibold hover:opacity-80 transition-opacity" href="#">Mood</a>
+<a class="text-stone-500 font-medium hover:opacity-80 transition-opacity" href="#">Insights</a>
+<a class="text-stone-500 font-medium hover:opacity-80 transition-opacity" href="#">Profile</a>
+</nav>
+<div class="flex items-center gap-4 text-[#005cae]">
+<button class="material-symbols-outlined p-2 hover:bg-surface-container rounded-full transition-colors">notifications</button>
+<button class="material-symbols-outlined p-2 hover:bg-surface-container rounded-full transition-colors">account_circle</button>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 max-w-7xl mx-auto px-6 md:px-12">
+<!-- Hero Section -->
+<section class="mb-16">
+<div class="flex flex-col md:flex-row justify-between items-end gap-6">
+<div>
+<span class="text-label text-xs uppercase tracking-[0.05em] font-medium text-primary">Analyse de l'Humeur</span>
+<h1 class="text-5xl md:text-6xl font-extrabold tracking-tight text-on-surface mt-2 mb-6">Votre Voyage Intérieur</h1>
+<p class="text-lg text-on-surface-variant max-w-2xl leading-relaxed">
+                        Cette semaine, votre état émotionnel a été marqué par une <span class="text-primary font-bold">sérénité croissante</span>. Mizan a observé que vos séances de méditation matinales stabilisent votre concentration durant vos heures d'études les plus denses.
+                    </p>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-lowest px-6 py-4 rounded-xl shadow-[0_8px_24px_rgba(28,27,27,0.04)]">
+<div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Score Bien-être</p>
+<p class="text-2xl font-bold text-on-surface">84/100</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+<!-- Main Chart Card -->
+<div class="md:col-span-8 bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(28,27,27,0.04)] overflow-hidden">
+<div class="flex justify-between items-center mb-12">
+<h3 class="text-xl font-bold">Intensité Émotionnelle</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-surface-container text-xs font-semibold rounded-full">30 DERNIERS JOURS</span>
+</div>
+</div>
+<div class="h-64 w-full relative">
+<!-- Faux Line Chart Visualization -->
+<svg class="w-full h-full" viewbox="0 0 800 200">
+<defs>
+<lineargradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#005cae" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#005cae" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<path d="M0,150 Q100,80 200,120 T400,60 T600,100 T800,40 V200 H0 Z" fill="url(#chartGradient)"></path>
+<path class="chart-line" d="M0,150 Q100,80 200,120 T400,60 T600,100 T800,40" fill="none" stroke="#005cae" stroke-linecap="round" stroke-width="4"></path>
+<!-- Data Points -->
+<circle cx="200" cy="120" fill="#005cae" r="6" stroke="white" stroke-width="2"></circle>
+<circle cx="400" cy="60" fill="#005cae" r="6" stroke="white" stroke-width="2"></circle>
+<circle cx="600" cy="100" fill="#005cae" r="6" stroke="white" stroke-width="2"></circle>
+<circle cx="800" cy="40" fill="#005cae" r="6" stroke="white" stroke-width="2"></circle>
+</svg>
+<div class="flex justify-between mt-4 text-xs font-medium text-stone-400 px-2">
+<span>1er Nov</span>
+<span>10 Nov</span>
+<span>20 Nov</span>
+<span>30 Nov</span>
+</div>
+</div>
+</div>
+<!-- Activity Correlations -->
+<div class="md:col-span-4 flex flex-col gap-6">
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/15">
+<div class="flex items-center gap-4 mb-3">
+<span class="material-symbols-outlined text-primary">bedtime</span>
+<h4 class="font-bold">Sommeil</h4>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                        Le sommeil profond améliore votre humeur de <span class="text-primary font-bold">15%</span> en moyenne.
+                    </p>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/15">
+<div class="flex items-center gap-4 mb-3">
+<span class="material-symbols-outlined text-primary">menu_book</span>
+<h4 class="font-bold">Études</h4>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                        Les sessions d'étude &gt; 2h sans pause corrèlent avec une hausse de <span class="text-error font-bold">8%</span> de l'anxiété.
+                    </p>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/15">
+<div class="flex items-center gap-4 mb-3">
+<span class="material-symbols-outlined text-primary">self_improvement</span>
+<h4 class="font-bold">Méditation</h4>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                        La pleine conscience réduit vos pics d'irritabilité de <span class="text-primary font-bold">22%</span> les jours d'examen.
+                    </p>
+</div>
+</div>
+<!-- AI Insights (Glassmorphic) -->
+<div class="md:col-span-12 glass-card p-10 rounded-xl flex flex-col md:flex-row gap-10 items-center">
+<div class="w-24 h-24 flex-shrink-0 bg-gradient-to-br from-primary to-primary-container rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<div class="flex-grow">
+<h3 class="text-2xl font-bold mb-3">Observations de Mizan AI</h3>
+<p class="text-on-surface-variant leading-relaxed mb-6 italic">
+                        "Nous avons remarqué une baisse d'énergie chaque mardi après-midi, souvent après votre cours de macroéconomie. Pensez à intégrer une courte marche de 10 minutes avant votre session de révision du soir pour réinitialiser votre système nerveux."
+                    </p>
+<button class="bg-primary text-white px-8 py-3 rounded-full font-bold hover:scale-105 transition-transform active:scale-95">Voir le plan d'action</button>
+</div>
+</div>
+<!-- Emotional Palette -->
+<div class="md:col-span-6 bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(28,27,27,0.04)]">
+<h3 class="text-xl font-bold mb-8">Palette Émotionnelle</h3>
+<div class="flex flex-wrap justify-center gap-8 py-4">
+<div class="flex flex-col items-center gap-2">
+<div class="w-20 h-20 rounded-full bg-primary-fixed/40 flex items-center justify-center animate-pulse">
+<div class="w-14 h-14 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-bold">42%</div>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Sérénité</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-24 h-24 rounded-full bg-secondary-fixed/40 flex items-center justify-center">
+<div class="w-18 h-18 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary font-bold">28%</div>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Focus</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-full bg-error-container/40 flex items-center justify-center">
+<div class="w-10 h-10 rounded-full bg-error-container flex items-center justify-center text-error font-bold">12%</div>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Anxiété</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-20 h-20 rounded-full bg-tertiary-fixed/40 flex items-center justify-center">
+<div class="w-14 h-14 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary font-bold">18%</div>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Joie</span>
+</div>
+</div>
+</div>
+<!-- Journal History -->
+<div class="md:col-span-6 bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(28,27,27,0.04)]">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-xl font-bold">Notes de Journal</h3>
+<button class="text-primary text-sm font-bold hover:underline">Tout voir</button>
+</div>
+<div class="space-y-6">
+<div class="flex gap-4 items-start pb-6 border-b border-surface-variant">
+<div class="w-10 h-10 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center font-bold text-xs">28</div>
+<div>
+<p class="font-bold text-sm">Aujourd'hui, 08:30</p>
+<p class="text-sm text-on-surface-variant mt-1">Sentiment de clarté après la méditation. Prêt pour l'examen.</p>
+</div>
+</div>
+<div class="flex gap-4 items-start pb-6 border-b border-surface-variant">
+<div class="w-10 h-10 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center font-bold text-xs">27</div>
+<div>
+<p class="font-bold text-sm">Hier, 22:15</p>
+<p class="text-sm text-on-surface-variant mt-1">Fatigué mais satisfait de ma journée de révisions.</p>
+</div>
+</div>
+<div class="flex gap-4 items-start">
+<div class="w-10 h-10 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center font-bold text-xs">26</div>
+<div>
+<p class="font-bold text-sm">Mardi, 17:45</p>
+<p class="text-sm text-on-surface-variant mt-1">Un peu stressé par le rendu de projet. Besoin de calme.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar (Mobile) -->
+<nav class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/80 dark:bg-stone-900/80 backdrop-blur-3xl rounded-full border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.1)] z-50">
+<div class="flex justify-around items-center h-20 px-4 font-['Manrope'] text-[11px] uppercase tracking-[0.05em] font-medium">
+<div class="text-stone-400 p-3 hover:text-stone-600 dark:hover:text-stone-200 hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined block text-center text-2xl mb-1">home</span>
+<span>Home</span>
+</div>
+<div class="bg-gradient-to-br from-[#004584] to-[#005cae] text-white rounded-full p-3 shadow-lg shadow-blue-500/30 scale-110">
+<span class="material-symbols-outlined block text-center text-2xl mb-1" style="font-variation-settings: 'FILL' 1;">bubble_chart</span>
+<span>Mood</span>
+</div>
+<div class="text-stone-400 p-3 hover:text-stone-600 dark:hover:text-stone-200 hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined block text-center text-2xl mb-1">auto_awesome</span>
+<span>Insights</span>
+</div>
+<div class="text-stone-400 p-3 hover:text-stone-600 dark:hover:text-stone-200 hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined block text-center text-2xl mb-1">person</span>
+<span>Profile</span>
+</div>
+</div>
+</nav>
+</body></html>

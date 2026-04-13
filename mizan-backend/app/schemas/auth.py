@@ -1,13 +1,15 @@
 # app/schemas/auth.py
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
+from uuid import UUID
+from typing import Optional
 
 
 class RequestActivationSchema(BaseModel):
-    email: EmailStr
+    email: str
 
 
 class VerifyOtpSchema(BaseModel):
-    email: EmailStr
+    email: str
     otp: str
 
 
@@ -17,7 +19,7 @@ class SetPasswordSchema(BaseModel):
 
 
 class LoginSchema(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
@@ -34,3 +36,10 @@ class RefreshTokenSchema(BaseModel):
 class ChangePasswordSchema(BaseModel):
     old_password: str
     new_password: str = Field(min_length=8)
+
+
+class CurrentUserResponse(BaseModel):
+    id: UUID
+    email: str
+    role: str
+    school_id: Optional[UUID] = None

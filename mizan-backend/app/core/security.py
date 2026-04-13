@@ -51,7 +51,7 @@ def generate_otp() -> str:
 
 def send_otp_email(email: str, otp: str) -> None:
     if not SMTP_USER or not SMTP_PASSWORD:
-        return
+        raise RuntimeError("SMTP credentials are not configured")
         
     msg = EmailMessage()
     msg.set_content(f"Votre code d'activation est : {otp}")
@@ -64,5 +64,5 @@ def send_otp_email(email: str, otp: str) -> None:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        raise RuntimeError(f"Failed to send OTP email: {exc}") from exc

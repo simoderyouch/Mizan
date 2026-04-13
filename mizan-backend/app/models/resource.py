@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from sqlalchemy import DateTime, JSON, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -23,10 +23,13 @@ class WellbeingResource(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    category: Mapped[str] = mapped_column(String, nullable=False, default="General")
     type: Mapped[ResourceType] = mapped_column(String, nullable=False)
     url: Mapped[str] = mapped_column(String, nullable=False)
     tags: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
     mood_trigger: Mapped[str] = mapped_column(String, nullable=False)
+    ai_instruction: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

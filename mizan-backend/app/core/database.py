@@ -8,10 +8,26 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+database_url = settings.resolved_database_url
+engine_kwargs: dict = {
+    "echo": (settings.APP_ENV == "development"),
+    "future": True,
+    "pool_pre_ping": settings.DB_POOL_PRE_PING,
+}
+
+if not database_url.startswith("sqlite"):
+    engine_kwargs.update(
+        {
+            "pool_size": settings.DB_POOL_SIZE,
+            "max_overflow": settings.DB_MAX_OVERFLOW,
+            "pool_timeout": settings.DB_POOL_TIMEOUT,
+            "pool_recycle": settings.DB_POOL_RECYCLE,
+        }
+    )
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=(settings.APP_ENV == "development"),
-    future=True
+    database_url,
+    **engine_kwargs,
 )
 
 AsyncSessionLocal = async_sessionmaker(

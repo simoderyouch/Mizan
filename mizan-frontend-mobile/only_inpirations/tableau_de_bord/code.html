@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#d5e3ff",
+                        "on-surface-variant": "#424751",
+                        "primary-container": "#005cae",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#4f5d74",
+                        "tertiary-fixed": "#d5e3ff",
+                        "inverse-surface": "#303030",
+                        "surface-container-highest": "#e4e2e1",
+                        "surface-container-high": "#eae7e7",
+                        "secondary-fixed": "#d6e3ff",
+                        "on-tertiary-fixed": "#0d1c30",
+                        "tertiary-fixed-dim": "#b9c7e2",
+                        "surface-tint": "#075eb0",
+                        "inverse-primary": "#a7c8ff",
+                        "on-tertiary-container": "#c8d6f1",
+                        "surface": "#fcf9f8",
+                        "error": "#ba1a1a",
+                        "on-surface": "#1b1c1b",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "error-container": "#ffdad6",
+                        "background": "#fcf9f8",
+                        "on-secondary-fixed": "#001b3e",
+                        "on-primary-fixed-variant": "#004788",
+                        "primary": "#004584",
+                        "outline": "#727783",
+                        "on-error-container": "#93000a",
+                        "surface-dim": "#dcd9d8",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f6f3f2",
+                        "on-background": "#1b1c1b",
+                        "on-primary": "#ffffff",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-primary-container": "#bfd6ff",
+                        "tertiary": "#38455c",
+                        "secondary-container": "#4090ff",
+                        "secondary-fixed-dim": "#aac7ff",
+                        "secondary": "#005db9",
+                        "on-secondary-fixed-variant": "#00458d",
+                        "on-secondary-container": "#002958",
+                        "on-primary-fixed": "#001b3b",
+                        "on-secondary": "#ffffff",
+                        "outline-variant": "#c2c6d3",
+                        "on-tertiary-fixed-variant": "#3a475e",
+                        "surface-variant": "#e4e2e1",
+                        "surface-bright": "#fcf9f8",
+                        "surface-container": "#f0edec"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(194, 198, 211, 0.15);
+        }
+        .tonal-shift-bg {
+            background: linear-gradient(135deg, #004584 0%, #005cae 100%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-40 bg-[#fcf9f8]/60 dark:bg-slate-950/60 backdrop-blur-xl flex justify-between items-center px-8 h-20 w-full">
+<div class="text-2xl font-bold tracking-tighter text-[#004584] dark:text-white">Mizan</div>
+<div class="hidden md:flex items-center gap-8">
+<nav class="flex gap-8">
+<a class="font-['Manrope'] font-medium tracking-tight text-[#004584] dark:text-blue-300 border-b-2 border-[#004584] transition-colors duration-300" href="#">Accueil</a>
+<a class="font-['Manrope'] font-medium tracking-tight text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300" href="#">Bien-être</a>
+<a class="font-['Manrope'] font-medium tracking-tight text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300" href="#">Progrès</a>
+<a class="font-['Manrope'] font-medium tracking-tight text-[#424751] dark:text-slate-400 hover:text-[#005cae] transition-colors duration-300" href="#">Profil</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#424751] cursor-pointer active:scale-95">notifications</button>
+<button class="material-symbols-outlined text-[#424751] cursor-pointer active:scale-95">settings</button>
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container ml-2 cursor-pointer active:scale-95">
+<img alt="Avatar de l'étudiant" data-alt="close-up portrait of a calm young man with a serene expression, soft natural lighting, minimalist aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2Gal1k3HWOJkUZHVa8B-mpeG62Lp71vTGRYy2k2cl9hwsiz6KGc761Gt-J9mHuR7wc9jTEBxPU283AfdH_VrL8SpyBF22DXP-IZoTC5l673xmVPt7f6_edF97LlRqxtIXO05nIYYyarXWCS7UxE8VKnnx-QCjsNFnbTbYEZmTrJO2H6O5IF8dxi6XjZOlVziU9DjAzZy6UQAR1CdPd2jd9WDVP2tOSSM2YTXLiOZ0vyFHMHa0GB--swv56D3V-G6MSJMj-5sWINsJ"/>
+</div>
+</div>
+</header>
+<main class="pt-32 px-6 md:px-16 max-w-7xl mx-auto">
+<!-- Hero Section -->
+<section class="mb-16">
+<h1 class="text-5xl md:text-6xl font-extrabold tracking-tight text-on-background mb-4">
+                Bonjour, Alexandre.
+            </h1>
+<p class="text-2xl text-on-surface-variant font-light max-w-2xl">
+                Trouvons votre équilibre aujourd'hui. Votre esprit est un sanctuaire, prenons-en soin.
+            </p>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+<!-- Daily Plan Card - AI Generated -->
+<div class="md:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-[0_8px_24px_rgba(28,27,27,0.04)] relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-6">
+<span class="px-3 py-1 bg-primary-fixed text-on-primary-fixed text-[10px] uppercase font-bold tracking-widest rounded-full">IA Recommandation</span>
+<h2 class="text-2xl font-bold tracking-tight">Votre Sanctuaire du Jour</h2>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="space-y-4">
+<div class="flex items-start gap-4 p-4 rounded-lg bg-surface-container-low">
+<span class="material-symbols-outlined text-primary" data-weight="fill">wb_sunny</span>
+<div>
+<p class="font-bold text-sm">Focus Matinal</p>
+<p class="text-xs text-on-surface-variant">90 min de Deep Work sur le projet Mizan.</p>
+</div>
+</div>
+<div class="flex items-start gap-4 p-4 rounded-lg bg-surface-container-low">
+<span class="material-symbols-outlined text-secondary" data-weight="fill">self_improvement</span>
+<div>
+<p class="font-bold text-sm">Pause Sérénité</p>
+<p class="text-xs text-on-surface-variant">15 min de méditation guidée à 14h00.</p>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-lg p-6 flex flex-col justify-center items-center text-center">
+<p class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Score de Prêtitude</p>
+<p class="text-5xl font-extrabold text-primary">88%</p>
+<p class="text-[10px] mt-2 text-on-surface-variant italic">Optimisé pour la créativité</p>
+</div>
+</div>
+</div>
+<div class="absolute top-0 right-0 w-1/3 h-full opacity-10 pointer-events-none">
+<img class="object-cover h-full w-full" data-alt="ethereal macro shot of light hitting water surface creating soft organic patterns and reflections" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBN6iL2f--T7G3r15JM7MFBgPhorIrHlDRI8AipEFNfgKrZFQArxMJumhl98wDjamIzWC-b9klOdgZVAYBpWDiqGmB7ZHAMIKScY5J-4K7DOau6oHdgTH0Z-Xe2MDB9hufxNXI759nGsQy6R1TCiUZwlqI7hePn2-67lyNcL7tbOZJCOTfzusQBqt9_H_pObF3NIp-Jt47ve4OqaozDNKs1ydcDN_UMVNTiY6WMrvBiTKtPP1tJ30JS3_94pcLRvDu9ao_OiWxZ-7Ey"/>
+</div>
+</div>
+<!-- Mood Analytics Card -->
+<div class="md:col-span-4 glass-card rounded-xl p-8 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-8">
+<h2 class="text-xl font-bold tracking-tight">Tendances</h2>
+<span class="material-symbols-outlined text-primary">trending_up</span>
+</div>
+<!-- Mock Line Graph -->
+<div class="h-32 w-full flex items-end justify-between gap-1 mb-4">
+<div class="w-2 bg-primary/20 rounded-full h-[40%]"></div>
+<div class="w-2 bg-primary/40 rounded-full h-[60%]"></div>
+<div class="w-2 bg-primary/30 rounded-full h-[50%]"></div>
+<div class="w-2 bg-primary/60 rounded-full h-[80%]"></div>
+<div class="w-2 bg-primary/80 rounded-full h-[70%]"></div>
+<div class="w-2 bg-primary rounded-full h-[95%]"></div>
+<div class="w-2 bg-primary/50 rounded-full h-[65%]"></div>
+</div>
+</div>
+<div>
+<p class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-1">État d'esprit moyen</p>
+<p class="text-lg font-medium text-primary">Serein &amp; Productif</p>
+</div>
+</div>
+<!-- Work Mode Distribution -->
+<div class="md:col-span-4 bg-surface-container-low rounded-xl p-8">
+<h2 class="text-xl font-bold tracking-tight mb-8">Énergie Hebdo</h2>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold uppercase tracking-wider">
+<span>Deep Work</span>
+<span>45%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full tonal-shift-bg w-[45%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold uppercase tracking-wider">
+<span>Collaboration</span>
+<span>30%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container w-[30%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold uppercase tracking-wider">
+<span>Repos &amp; Soin</span>
+<span>25%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-container w-[25%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Weekly Report Summary -->
+<div class="md:col-span-8 bg-surface-container rounded-xl p-8 flex flex-col md:flex-row gap-8 items-center">
+<div class="flex-shrink-0 w-32 h-32 rounded-full border-4 border-primary/20 flex items-center justify-center relative">
+<span class="text-3xl font-black text-primary">9.2</span>
+<svg class="absolute inset-0 w-full h-full -rotate-90">
+<circle class="text-primary" cx="64" cy="64" fill="transparent" r="60" stroke="currentColor" stroke-dasharray="377" stroke-dashoffset="37" stroke-width="4"></circle>
+</svg>
+</div>
+<div>
+<h2 class="text-2xl font-bold tracking-tight mb-2">Synthèse de la Semaine</h2>
+<p class="text-on-surface-variant leading-relaxed mb-6">
+                        Excellente stabilité cette semaine. Vous avez maintenu une routine de sommeil constante de 7h45. Vos pics de créativité se situent majoritairement le mardi matin entre 9h et 11h.
+                    </p>
+<button class="px-8 py-3 rounded-full tonal-shift-bg text-on-primary font-bold text-sm tracking-wide shadow-lg shadow-blue-900/20 active:scale-95 transition-all">
+                        Voir le rapport complet
+                    </button>
+</div>
+</div>
+</div>
+<!-- Quick Insights / Quote -->
+<section class="mt-16 text-center">
+<div class="inline-block py-2 px-6 rounded-full bg-primary-fixed/30 text-on-primary-fixed-variant font-medium italic text-sm mb-4">
+                "Le calme est le berceau du pouvoir." — Josiah Gilbert Holland
+            </div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-8 px-6 py-3 rounded-full w-max bg-white/70 dark:bg-slate-900/70 backdrop-blur-[20px] shadow-[0_8px_24px_rgba(28,27,27,0.04)] border border-white/15">
+<a class="flex flex-col items-center justify-center bg-[#004584] text-white rounded-full w-12 h-12 shadow-lg shadow-blue-900/20 scale-110 duration-500 ease-out transition-all" href="#">
+<span class="material-symbols-outlined" data-weight="fill">home</span>
+<span class="hidden">Accueil</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all" href="#">
+<span class="material-symbols-outlined">self_care</span>
+<span class="hidden">Bien-être</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="hidden">Progrès</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 w-12 h-12 hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="hidden">Profil</span>
+</a>
+</nav>
+</body></html>

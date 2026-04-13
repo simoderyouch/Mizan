@@ -35,8 +35,14 @@ class Student(Base):
     morning_checkins: Mapped[List["MorningCheckin"]] = relationship("MorningCheckin", back_populates="student")
     evening_checkins: Mapped[List["EveningCheckin"]] = relationship("EveningCheckin", back_populates="student")
     goals: Mapped[List["Goal"]] = relationship("Goal", back_populates="student")
+    tasks: Mapped[List["Task"]] = relationship("Task", back_populates="student")
     mode_sessions: Mapped[List["ModeSession"]] = relationship("ModeSession", back_populates="student")
     voice_sessions: Mapped[List["VoiceSession"]] = relationship("VoiceSession", back_populates="student")
+    notifications: Mapped[List["Notification"]] = relationship("Notification", back_populates="student")
+    agent_runs: Mapped[List["AgentRun"]] = relationship("AgentRun", back_populates="student")
+    agent_contracts: Mapped[List["AgentActionContract"]] = relationship(
+        "AgentActionContract", back_populates="student"
+    )
 
 
 class Schedule(Base):

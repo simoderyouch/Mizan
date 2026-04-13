@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#0d1c30",
+                        "on-primary-fixed": "#001b3b",
+                        "on-secondary-fixed-variant": "#00458d",
+                        "surface-tint": "#075eb0",
+                        "tertiary": "#38455c",
+                        "on-secondary-container": "#002958",
+                        "surface-bright": "#fcf9f8",
+                        "inverse-primary": "#a7c8ff",
+                        "error-container": "#ffdad6",
+                        "surface-container": "#f0edec",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#3a475e",
+                        "tertiary-fixed-dim": "#b9c7e2",
+                        "primary": "#004584",
+                        "surface-dim": "#dcd9d8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-low": "#f6f3f2",
+                        "primary-fixed": "#d5e3ff",
+                        "on-surface-variant": "#424751",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "on-secondary-fixed": "#001b3e",
+                        "secondary-container": "#4090ff",
+                        "tertiary-container": "#4f5d74",
+                        "outline-variant": "#c2c6d3",
+                        "on-surface": "#1b1c1b",
+                        "surface-container-high": "#eae7e7",
+                        "on-background": "#1b1c1b",
+                        "on-primary-fixed-variant": "#004788",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#c8d6f1",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f3f0ef",
+                        "secondary-fixed": "#d6e3ff",
+                        "secondary": "#005db9",
+                        "on-error-container": "#93000a",
+                        "surface-variant": "#e4e2e1",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#303030",
+                        "background": "#fcf9f8",
+                        "primary-container": "#005cae",
+                        "outline": "#727783",
+                        "surface": "#fcf9f8",
+                        "on-primary-container": "#bfd6ff",
+                        "surface-container-highest": "#e4e2e1",
+                        "secondary-fixed-dim": "#aac7ff",
+                        "tertiary-fixed": "#d5e3ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .signature-gradient {
+            background: linear-gradient(135deg, #004584 0%, #005cae 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-fixed">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#fcf9f8]/70 dark:bg-[#1b1c1b]/70 backdrop-blur-2xl flex justify-between items-center px-8 h-20 w-full">
+<div class="text-2xl font-bold tracking-tighter text-[#004584] dark:text-[#d5e3ff] font-manrope">
+            Serenity AI
+        </div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#424751] dark:text-[#c2c6d3] hover:bg-[#f0edec] dark:hover:bg-[#424751] rounded-full transition-colors duration-200 ease-out">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-[#424751] dark:text-[#c2c6d3] hover:bg-[#f0edec] dark:hover:bg-[#424751] rounded-full transition-colors duration-200 ease-out">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden ml-2 border border-outline-variant/15">
+<img alt="Student Profile" class="w-full h-full object-cover" data-alt="close-up portrait of a serene young woman with soft natural lighting and a minimalist background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEoEuvHWdeK0xN5JQSY-fyWdvoYYarvB7DxDMQ1pT10GWdAWX2WDlSHMACKaXh5qY8srrgPu5OscC7djGszWj4yIoJTXS4NlbpJH6s3gQCygUGsTW45LvlSVjm_f2NbvTSKM5v1orIUnR5LEBqg19SV5_oailRjXKDNlr4daDn00SPM-w1BP431ZLWreVz5LlOWa3kw_BV-h7tAdAk5iN68hUiyx2wK7KeJJrk28TuBEG96HawTe4HvegkitfrHEhQmHAhu54qs_fj"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-6xl mx-auto space-y-12">
+<!-- Hero Section -->
+<section class="mt-12 space-y-6">
+<div class="space-y-2">
+<span class="text-xs font-label uppercase tracking-[0.05em] text-primary font-bold">Votre Plan d'Action</span>
+<h1 class="text-4xl md:text-5xl font-headline font-extrabold tracking-tight text-on-surface">Retrouver de l'énergie et de la concentration.</h1>
+<p class="text-lg text-on-surface-variant max-w-2xl font-body leading-relaxed">
+                    Recommandations personnalisées de Mizan AI basées sur votre état actuel et vos engagements académiques.
+                </p>
+</div>
+<div class="flex gap-4 items-center p-6 bg-primary-fixed/30 rounded-xl">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">colors_spark</span>
+<p class="text-on-primary-fixed-variant font-medium">Votre score de prêtitude est de 64. Suivez ce plan pour atteindre 82 d'ici ce soir.</p>
+</div>
+</section>
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Recommended Actions: Left Column -->
+<div class="lg:col-span-7 space-y-6">
+<h2 class="text-sm font-label uppercase tracking-widest text-on-surface-variant font-semibold px-2">Actions Prioritaires</h2>
+<!-- Action Card 1 -->
+<div class="group bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(28,27,27,0.04)] transition-all hover:translate-y-[-2px] border border-outline-variant/5">
+<div class="flex items-start justify-between">
+<div class="flex gap-6">
+<div class="w-14 h-14 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined text-3xl">directions_walk</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-headline font-bold text-on-surface">Marche rapide (15 min)</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Réinitialise le système nerveux après votre cours de macroéconomie.</p>
+</div>
+</div>
+<span class="text-xs font-label text-primary bg-primary-fixed px-3 py-1 rounded-full font-bold">À FAIRE</span>
+</div>
+</div>
+<!-- Action Card 2 -->
+<div class="group bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(28,27,27,0.04)] transition-all hover:translate-y-[-2px] border border-outline-variant/5">
+<div class="flex items-start justify-between">
+<div class="flex gap-6">
+<div class="w-14 h-14 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined text-3xl">self_care</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-headline font-bold text-on-surface">Séance de respiration guidée</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Réduit l'anxiété avant votre révision de statistiques.</p>
+</div>
+</div>
+<span class="text-xs font-label text-primary bg-primary-fixed px-3 py-1 rounded-full font-bold">14:00</span>
+</div>
+</div>
+<!-- Action Card 3 -->
+<div class="group bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(28,27,27,0.04)] transition-all hover:translate-y-[-2px] border border-outline-variant/5">
+<div class="flex items-start justify-between">
+<div class="flex gap-6">
+<div class="w-14 h-14 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined text-3xl">water_drop</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-headline font-bold text-on-surface">Hydratation &amp; Pause Écran</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Rappel régulier pour maintenir la clarté mentale et réduire la fatigue oculaire.</p>
+</div>
+</div>
+<span class="text-xs font-label text-primary bg-primary-fixed px-3 py-1 rounded-full font-bold">CONTINU</span>
+</div>
+</div>
+</div>
+<!-- Side Panels: Right Column -->
+<div class="lg:col-span-5 space-y-8">
+<!-- AI Reasoning Card -->
+<div class="p-8 rounded-xl bg-white/40 backdrop-blur-3xl border border-white/20 shadow-[0_8px_24px_rgba(28,27,27,0.04)] relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 signature-gradient opacity-10 rounded-bl-full"></div>
+<div class="relative space-y-4">
+<div class="flex items-center gap-2 text-primary font-bold">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="text-sm font-label uppercase tracking-widest">Analyse de Mizan AI</span>
+</div>
+<p class="text-on-surface font-body italic leading-relaxed">
+                            "Nous avons remarqué une baisse d'énergie récurrente le mardi après-midi, souvent corrélée à vos blocs de statistiques. Votre rythme cardiaque est légèrement plus élevé que la normale au repos ce matin. Ce plan vise à stabiliser votre cortisol avant l'effort mental de 16h."
+                        </p>
+</div>
+</div>
+<!-- Impact Prévisionnel Card -->
+<div class="bg-surface-container-high/50 p-8 rounded-xl space-y-6 border border-outline-variant/10">
+<h3 class="text-sm font-label uppercase tracking-widest text-on-surface-variant font-bold">Impact Prévisionnel</h3>
+<div class="flex items-end gap-3 h-32 px-4">
+<div class="flex-1 bg-primary-fixed-dim rounded-t-lg h-[40%]"></div>
+<div class="flex-1 bg-primary-fixed-dim rounded-t-lg h-[55%]"></div>
+<div class="flex-1 bg-primary-fixed-dim rounded-t-lg h-[64%]"></div>
+<div class="flex-1 signature-gradient rounded-t-lg h-[82%] relative group">
+<div class="absolute -top-10 left-1/2 -translate-x-1/2 bg-on-background text-white text-[10px] py-1 px-2 rounded-md font-bold">82%</div>
+</div>
+<div class="flex-1 bg-surface-variant rounded-t-lg h-[78%]"></div>
+<div class="flex-1 bg-surface-variant rounded-t-lg h-[75%]"></div>
+</div>
+<div class="flex justify-between items-center pt-4 border-t border-outline-variant/20">
+<div class="space-y-1">
+<p class="text-xs text-on-surface-variant">Score de Prêtitude</p>
+<p class="text-2xl font-headline font-extrabold text-primary">+18 points</p>
+</div>
+<button class="signature-gradient text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
+                            Lancer le plan
+                        </button>
+</div>
+</div>
+<!-- Contextual Image/Atmosphere -->
+<div class="relative h-64 rounded-xl overflow-hidden shadow-xl">
+<img alt="Mindful Atmosphere" class="w-full h-full object-cover" data-alt="serene high-angle view of a yoga mat and water bottle in a sunlit minimalist room with soft long shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCg-9K3E1smUuK0FTl5URpi8EU6C8Sg8bdCjqF5gfaDGfR8buOVyBQo5fcH4Ov94yyerDFpXbk_q0bmv7oKZF6s1F2_Xs1AoKzd6ex-5xsp6kkk53j51IkJEcLLJMcenjBMdPxm3cqAxIk2kbbihgIzHrAiZq4fEfmgYKX_wjxZBhCQTF3hR4iFrSo3Codx25YHDlE4bHshwI04as8jVdmrc6xVGdGsjEEBbvHNMkcgpOMwnx1x1Lmyp6VF_6F6VIivn7UXNQo6SK28"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-background/60 to-transparent flex flex-col justify-end p-6">
+<p class="text-white text-sm font-medium opacity-90">Environnement recommandé :</p>
+<p class="text-white text-xl font-bold">Lumière naturelle &amp; calme</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex justify-around items-center p-2 bg-white/70 dark:bg-[#1b1c1b]/70 backdrop-blur-3xl w-[90%] max-w-md rounded-full border border-white/15 shadow-[0_8px_24px_rgba(28,27,27,0.04)]">
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-[#c2c6d3] w-14 h-14 hover:opacity-80 transition-opacity scale-110 duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">spa</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.05em] font-semibold">Sanctuary</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-[#004584] to-[#005cae] text-white rounded-full w-14 h-14 hover:opacity-80 transition-opacity scale-110 duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">assignment_turned_in</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.05em] font-semibold">Action Plan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-[#c2c6d3] w-14 h-14 hover:opacity-80 transition-opacity scale-110 duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.05em] font-semibold">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-[#c2c6d3] w-14 h-14 hover:opacity-80 transition-opacity scale-110 duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-manrope text-[10px] uppercase tracking-[0.05em] font-semibold">Journal</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,90 @@
+Frontend Design Prompt: Mizan — Digital Sanctuary
+Objective
+Create a premium, minimalist, and editorial-style student wellbeing dashboard for Mizan. The interface should feel like a "Digital Sanctuary"—calm, borderless, and focused on breathing room. It uses Next.js 14 (App Router), Tailwind CSS, and Shadcn UI components.
+Design System: "Digital Sanctuary"
+
+
+Color Palette:
+
+
+Background: #fcf9f8 (Soft surface)
+
+Primary: #005cae (Deep Blue)
+
+Secondary: #4090ff (Vibrant Blue)
+
+Accent/Fixed: #d5e3ff (Soft Blue)
+
+Text: #1c1b1b (Off-black)
+
+Typography: Manrope (Sans-serif), clean and modern.
+
+Aesthetics:
+
+
+No standard borders: Use soft shadows and subtle color shifts.
+
+Ghost Borders: Where needed, use 15% opacity of the outline color (#c1c6d526).
+
+Glassmorphism: Use backdrop-blur and translucency for floating elements.
+
+Micro-animations: Smooth transitions, hover lifts, and subtle fades.
+Core Modules & Functionality
+Based on the existing FastAPI backend (/api/v1/ prefix):
+1. Unified Authentication Flow
+
+
+OTP-based Activation: Request activation via email, verify OTP, then set password.
+
+JWT Management: Implement persistent login with access/refresh token rotation.
+
+Guest Access: Graceful handling of unauthenticated states where applicable.
+2. The Dashboard (Home)
+
+
+Mood Analytics: A beautiful line graph (/analytics/mood) showing the student's emotional trend over 7/30 days.
+
+Daily Plan: A card displaying the AI-generated plan from the morning check-in.
+
+Work Mode Distribution: A pie chart or bar graph (/analytics/modes) showing how time is allocated.
+
+Weekly Report: A summary card (/analytics/weekly-report) with key insights.
+3. Check-in Workflows (Morning & Evening)
+
+
+Voice-First Experience: High-quality voice interaction using ElevenLabs and Groq Whisper.
+
+Morning Check-in: 4 dynamic questions (Sleep, Mood, Schedule contextual questions).
+
+Evening Check-in: Reflection on the day's goals and plan completion.
+
+AI Feedback: Settle the analysis from Mistral AI into actionable recommendations.
+4. Goal & Task Tracking
+
+
+Interactive Goals: Progress bars for semester goals.
+
+Check-in Integration: Goals should be visible during the daily check-ins.
+Navigation System
+
+
+Floating Dock: A centered, translucent bottom dock for mobile and a sidebar/top dock for desktop.
+
+Minimal Header: A simple logo (Mizan SVG) and a user profile/settings trigger.
+Technical Requirements
+
+
+State Management: Use React context or a lightweight lib (Zustand) for AppState.
+
+API Client: Axios or Fetch with interceptors for token refresh logic.
+
+Icons: Lucide React (minimalist).
+
+Components: Shadcn UI (buttons, cards, dialogs, charts).
+Content Strategy
+
+
+Language: French (fr). Use empathetic, professional, yet supportive tone.
+
+Project Name: Mizan (ميزان), meaning "Balance" in Arabic.
+Prompt for UI Generation/Implementation: "Build a Next.js 14 dashboard for 'Mizan', a student wellbeing AI. Apply the 'Digital Sanctuary' design system: #fcf9f8 background, borderless soft-shadow cards, and deep blue (#005cae) accents. Implement a floating navigation dock and a hero section featuring a Manrope-typed greeting. Integrate a mood trend chart using Recharts and a daily AI-plan card. The UI must feel extremely premium, using subtle micro-animations and glassy textures."
