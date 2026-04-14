@@ -395,6 +395,12 @@ async def update_task(
     return task
 
 
+async def delete_task(db: AsyncSession, student_id: UUID, task_id: UUID) -> None:
+    result = await db.execute(select(Task).where(and_(Task.id == task_id, Task.student_id == student_id)))
+    task = result.scalars().first()
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
     # 1. Dissociate any agent action contracts that reference this task to avoid FK violation
     from app.models.agent_contract import AgentActionContract
     from sqlalchemy import update
