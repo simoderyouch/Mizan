@@ -8,7 +8,7 @@
 
 ## 🚀 Live Demo & Access
 
-Mizan is fully deployed and ready for evaluation. You can access the different interfaces below:
+Mizan is fully deployed and ready for immediate evaluation.
 
 *   **Mobile PWA (Primary User Hub):** [https://mizanm.mohamededderyouch.me/](https://mizanm.mohamededderyouch.me/)
 *   **Web Dashboard:** [https://mizan.mohamededderyouch.me/](https://mizan.mohamededderyouch.me/)
@@ -22,37 +22,47 @@ Mizan is fully deployed and ready for evaluation. You can access the different i
 
 ---
 
-## 🎯 The Problem
-Modern students are overwhelmed by a fragmented digital life. Between complex schedules, high-pressure exams, and mental health challenges, they don't need another static organizer. They need an **Agentic Partner** that senses their state and intervenes proactively.
+## 🎯 The Problem: The "Silent Crisis" in Education
+Modern students face a fragmented digital environment. Between overwhelming schedules, looming deadlines, and high-pressure exams, mental wellbeing is often sacrificed. Students don't need another "to-do list"; they need an **intelligent partner** that understands their state and intervenes before burnout happens.
 
-## 🤖 The Mizan Agent (Agentic Core)
-Mizan is a **Sense-Think-Decide-Act** autonomous agent built on the Mistral AI ecosystem. Unlike classic chatbots, Mizan operates as an orchestrator that manages student life in the background.
-
-### 1. SENSE: Multi-Modal Context
-Mizan monitors the student's digital twin:
-*   **Wellbeing Pulse**: Daily morning/evening rituals (Mood, Sleep, Stress levels).
-*   **Academic Pressure**: Real-time synchronization of schedules, exams, and project milestones.
-
-### 2. THINK: Reasoning with Mistral AI
-Using a **ReAct (Reason + Action) Planner**, Mizan reflects on the unified context:
-> *"The student hasn't logged a revision session for the exam tomorrow and reported high stress this morning. I should propose a 'Stabilization Mode' to reduce anxiety before suggesting a micro-sprint."*
-
-### 3. DECIDE & ACT: Proactive Interventions
-Mizan doesn't just reply; it takes system-level actions:
-*   **PROPOSE_MODE_SWITCH**: Changes the app theme and focus (REVISION, EXAMEN, REPOS).
-*   **CREATE_TASK**: Generates "Adaptive Win" tasks based on current cognitive load.
-*   **AGENT_SYNC**: Automatically clones class-wide academic content to the student's personal dashboard when the School Head updates the institution data.
+**Mizan** (Balance) is that partner. It is a **Sense-Think-Decide-Act** autonomous agent.
 
 ---
 
-## 🏗️ Technical Architecture
+## 🤖 The Mizan Agent: How it Works
+Mizan satisfies the four pillars of a "True AI Agent":
 
-Mizan is built for production stability and premium user experience:
+### 1️⃣ SENSE: Multi-Modal Contextual Input
+Mizan autonomously monitors:
+- **Ritual Data**: Morning/Evening check-ins (Mood, Sleep, Stress).
+- **Academic Context**: Real-time schedule updates, exam dates, and project milestones.
+- **Autonomous Triggers**: Institutional updates (e.g., a new exam added) or "Silence Risks" (missed rituals).
 
-*   **Brain:** Mistral AI (Mistral-Large for reasoning, Voxtral for Real-time Voice STT/TTS).
-*   **Backend:** FastAPI (Python 3.12) with asynchronous SQLAlchemy and WebSocket support.
-*   **Frontends:** Next.js 14 (App Router) with Shadcn UI and Framer Motion.
-*   **Infrastructure:** Orchestrated via Docker Compose, deployed on AWS EC2 with Nginx reverse proxy and SSL (Certbot).
+### 2️⃣ THINK: Deep LLM Reasoning
+Mizan uses a **ReAct (Reason + Action) Planner** powered by **Mistral AI**. 
+Instead of hard-coded responses, it reflects on the unified student context:
+> *"The student has had low mood for 2 days and has an exam tomorrow. A high-pressure revision task might increase anxiety. I should instead suggest a 20-minute recovery mode followed by a micro-sprint."*
+
+### 3️⃣ DECIDE: Personalized Strategy
+Mizan automatically selects the most effective intervention:
+- **`PROPOSE_MODE_SWITCH`**: Transitions the entire UI into a specialized mode (REVISION, REPOS, etc.).
+- **`CREATE_TASK`**: Generates a low-friction "Adaptive Win" task.
+- **`AGENT_SYNC`**: Clones class-wide academic content to the student dashboard.
+
+### 4️⃣ ACT: Direct Intervention
+Mizan takes concrete action by updating the UI, sending proactive notifications, and managing the focus environment.
+
+---
+
+## 🏗️ Technology Stack & Architecture
+
+| Component | Technology | Role |
+| :--- | :--- | :--- |
+| **Brain** | Mistral AI (Large/Mini) | Core Reasoning & Planning |
+| **Backend** | FastAPI (Python 3.12) | High-performance Agent Orchestration |
+| **Frontend** | Next.js 14 + Tailwind | Glassmorphic "Digital Sanctuary" PWA |
+| **Voice** | Mistral Voxtral (STT/TTS) | Real-time Audio Transcription & Synthesis |
+| **Infrastructure** | Docker & AWS EC2 | Production-grade deployment with Nginx & SSL |
 
 ```mermaid
 graph TD
@@ -66,37 +76,23 @@ graph TD
 
 ---
 
-## 🛠️ How to Run Locally
+## 🎭 Impact Scenarios
 
-### 1. Prerequisites
-*   Docker & Docker Compose
-*   Mistral AI API Key
+### 🌊 Scenario 1: The Burnout Guard
+**Detects** sustained low mood. **Identifies** overdue projects. **Decides** to lower the cognitive barrier. **Transitions** app to `REPOS` mode and hides non-essential tasks.
+*Result: Immediate reduction in user anxiety and prevention of total burnout.*
 
-### 2. Setup
-```bash
-# Clone the repository
-git clone https://github.com/simoderyouch/Mizan.git
-cd Mizan
-
-# Configure Environment
-cp .env.compose.example .env.compose
-# Edit .env.compose and set your MISTRAL_API_KEY
-```
-
-### 3. Launch
-```bash
-docker compose --env-file .env.compose up -d --build
-```
-*   **Frontend**: `http://localhost:3000`
-*   **Backend**: `http://localhost:8000`
+### 📚 Scenario 2: The Exam Strategist
+**Identifies** an exam tomorrow with no study logged. **Reasons** procrastination due to pressure. **Proposes** `EXAMEN` mode with a "30-min Triage" task. **Locks** the dashboard focus.
+*Result: Transformation of "analysis paralysis" into a concrete academic win.*
 
 ---
 
-## 🌟 Features Breakdown
-*   **Autonomous Rituals**: Voice-controlled Morning/Evening check-ins that extract actionable insights.
-*   **Focus Modes**: Adaptive UI environments (Revision, Exam, Reset) to manage cognitive fatigue.
-*   **Institution Dashboard**: Managed by School Heads to ensure all students receive synchronized academic updates instantly.
-*   **Digital Sanctuary Design**: A premium, editorial-style interface designed to calm rather than distract.
+## 🛠️ Local Setup
+
+1.  **Clone**: `git clone https://github.com/simoderyouch/Mizan.git && cd Mizan`
+2.  **Env**: `cp .env.compose.example .env.compose` (Set your `MISTRAL_API_KEY`).
+3.  **Run**: `docker compose --env-file .env.compose up -d --build`
 
 ---
-*Created for the GIEW 2026 Wellness & Agent Challenge.*
+*Created with 💚 by Team Mizan for the Eudaimonia Club AI Competition.*
