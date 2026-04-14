@@ -33,9 +33,9 @@ if [ ! -e "docker/nginx/conf.d/options-ssl-nginx.conf" ]; then
 fi
 
 # Initial dummy certificate for Nginx startup (if no real cert exists)
-if [ ! -d "docker/nginx/certbot/conf/live/$DOMAIN" ]; then
-    echo "### Creating dummy certificate for $DOMAIN..."
-    path="/etc/letsencrypt/live/$DOMAIN"
+if [ ! -d "docker/nginx/certbot/conf/live/mizan.$DOMAIN" ]; then
+    echo "### Creating dummy certificate for mizan.$DOMAIN..."
+    path="/etc/letsencrypt/live/mizan.$DOMAIN"
     docker compose run --rm --entrypoint \
       "sh -c 'mkdir -p $path && \
        openssl req -x509 -nodes -newkey rsa:2048 -days 1\
@@ -50,7 +50,7 @@ docker compose up --force-recreate -d nginx
 # Delete dummy certificate
 echo "### Deleting dummy certificate..."
 docker compose run --rm --entrypoint \
-  "rm -rf /etc/letsencrypt/live/$DOMAIN /etc/letsencrypt/archive/$DOMAIN /etc/letsencrypt/renewal/$DOMAIN.conf" certbot
+  "rm -rf /etc/letsencrypt/live/mizan.$DOMAIN /etc/letsencrypt/archive/mizan.$DOMAIN /etc/letsencrypt/renewal/mizan.$DOMAIN.conf" certbot
 
 echo "### Requesting real Let's Encrypt certificate for $DOMAIN..."
 # Requesting for subdomains (excluding base domain as it is on Vercel)

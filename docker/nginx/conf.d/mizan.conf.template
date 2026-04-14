@@ -16,8 +16,8 @@ server {
     listen 443 ssl;
     server_name mizan.${DOMAIN};
 
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/mizan.${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mizan.${DOMAIN}/privkey.pem;
     include /etc/nginx/conf.d/options-ssl-nginx.conf;
     ssl_dhparam /etc/nginx/conf.d/ssl-dhparams.pem;
 
@@ -35,8 +35,8 @@ server {
     listen 443 ssl;
     server_name mizanm.${DOMAIN};
 
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/mizan.${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mizan.${DOMAIN}/privkey.pem;
     include /etc/nginx/conf.d/options-ssl-nginx.conf;
     ssl_dhparam /etc/nginx/conf.d/ssl-dhparams.pem;
 
@@ -54,8 +54,8 @@ server {
     listen 443 ssl;
     server_name api.${DOMAIN};
 
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/mizan.${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mizan.${DOMAIN}/privkey.pem;
     include /etc/nginx/conf.d/options-ssl-nginx.conf;
     ssl_dhparam /etc/nginx/conf.d/ssl-dhparams.pem;
 
