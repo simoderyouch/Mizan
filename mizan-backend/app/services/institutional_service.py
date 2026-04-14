@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.institution import Class, Filiere, Promotion, School, VerificationStatus
 from app.models.user import Role, User
-from app.core.security import hash_password
+from app.core.security import hash_password, send_school_approval_email, send_school_rejection_email
 from app.schemas.institution import (
     ClassCreate,
     FiliereCreate,
@@ -67,9 +67,16 @@ async def verify_school(db: AsyncSession, school_id: UUID, status: str, note: Op
         admin = admin_result.scalars().first()
         if admin:
             admin.is_active = True
+            # Send approval email
+            send_school_approval_email(admin.email, school.name)
     elif status == "REJECTED":
         school.verification_status = VerificationStatus.REJECTED
         school.verification_note = note
+        # Send rejection email
+        admin_result = await db.execute(select(User).where(User.school_id == school_id, User.role == Role.ADMIN))
+        admin = admin_result.scalars().first()
+        if admin:
+            send_school_rejection_email(admin.email, school.name, note)
     
     await db.commit()
     await db.refresh(school)
