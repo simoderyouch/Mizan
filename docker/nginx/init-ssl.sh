@@ -53,8 +53,8 @@ docker compose run --rm --entrypoint \
   "rm -rf /etc/letsencrypt/live/$DOMAIN /etc/letsencrypt/archive/$DOMAIN /etc/letsencrypt/renewal/$DOMAIN.conf" certbot
 
 echo "### Requesting real Let's Encrypt certificate for $DOMAIN..."
-# Requesting for main domain and subdomains
-domain_args="-d $DOMAIN -d mizan.$DOMAIN -d mizanm.$DOMAIN -d api.$DOMAIN"
+# Requesting for subdomains (excluding base domain as it is on Vercel)
+domain_args="-d mizan.$DOMAIN -d mizanm.$DOMAIN -d api.$DOMAIN"
 
 # Select appropriate email arg
 case "$EMAIL" in
