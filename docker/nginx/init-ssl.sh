@@ -70,7 +70,7 @@ docker compose run --rm --entrypoint \
     $staging_arg \
     $email_arg \
     $domain_args \
-    --rsa-key-size 4048 \
+    --rsa-key-size 2048 \
     --agree-tos \
     --force-renewal \
     --non-interactive" certbot
