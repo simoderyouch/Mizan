@@ -67,6 +67,7 @@ async def import_students_from_csv(db: AsyncSession, current_user: User, class_i
     rows = await parse_trombi_csv(file)
     count = 0
     
+    new_student_data = []
     for row in rows:
         email = row.get("email")
         if not email:
@@ -89,9 +90,18 @@ async def import_students_from_csv(db: AsyncSession, current_user: User, class_i
             photo_url=row.get("photo_url")
         )
         db.add(student)
+        await db.flush()
+        new_student_data.append((student.id, class_id))
         count += 1
         
     await db.commit()
+
+    if new_student_data:
+        from app.services.class_content_autonomy import sync_class_content_to_new_student
+        for sid, cid in new_student_data:
+            await sync_class_content_to_new_student(db, sid, cid, current_user)
+        await db.commit()
+
     return count
 
 
@@ -151,6 +161,12 @@ async def create_student_admin(db: AsyncSession, current_user: User, data: Stude
     )
     db.add(student)
     await db.commit()
+
+    # Sync class content to the new student
+    from app.services.class_content_autonomy import sync_class_content_to_new_student
+    await sync_class_content_to_new_student(db, student.id, data.class_id, current_user)
+    await db.commit()
+
     return await _get_student_with_relations_by_id(db, student.id)
 
 
