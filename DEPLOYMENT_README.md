@@ -45,13 +45,11 @@ Use these recommended settings:
 Configure inbound exactly like this:
 
 - `22` (SSH) -> source: **your IP only** (recommended)
-- `3000` (web frontend) -> source: `0.0.0.0/0`
-- `3001` (mobile frontend) -> source: `0.0.0.0/0`
-- `8000` (backend API/docs) -> source: `0.0.0.0/0` (or your IP if you want it private)
+- `80` (HTTP) -> source: `0.0.0.0/0` (for SSL challenge and redirect)
+- `443` (HTTPS) -> source: `0.0.0.0/0` (main entry point)
 
-Keep database private:
-
-- Do **not** open `5432` publicly unless you explicitly need external DB access.
+Keep app ports and database private:
+- Do **not** open `3000`, `3001`, `8000` or `5432` publicly. They are handled by Nginx internally.
 
 ### 2.3 Connect to instance
 
@@ -113,6 +111,8 @@ Minimum values to set:
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
+- `DOMAIN` (e.g., `mizan.your-domain.com`)
+- `EMAIL` (for Certbot SSL alerts)
 
 If you keep defaults, internal DB works with:
 - `POSTGRES_DB=mizan`
@@ -160,24 +160,58 @@ docker compose down -v
 docker compose --env-file .env.compose up -d --build
 ```
 
+### 3.2 DNS Configuration (For Vercel Portfolio Users)
+
+If your main domain (e.g. `yourdomain.com`) is already pointing to **Vercel**, you can still use **Mizan subdomains** on EC2 without breaking your portfolio.
+
+1. **Find your EC2 Public IP**: In AWS Console -> Copy "Public IPv4 address".
+2. **Login to Namecheap** -> Advanced DNS.
+3. **Add ONLY these A records** (Do NOT change `@` or `www` if Vercel uses them):
+   - **Type**: `A Record` | **Host**: `mizan` | **Value**: `<EC2_PUBLIC_IP>`
+   - **Type**: `A Record` | **Host**: `mizanm` | **Value**: `<EC2_PUBLIC_IP>`
+   - **Type**: `A Record` | **Host**: `api` | **Value**: `<EC2_PUBLIC_IP>`
+4. **Wait**: DNS propagation is usually fast for new subdomains.
+
 ---
 
-## 4. Important public URL values (for jury access)
+### 4. SSL / HTTPS Setup (Recommended)
 
-`NEXT_PUBLIC_API_URL` is baked during frontend build.
+To deploy with SSL (HTTPS) using Let's Encrypt:
 
-Set it in `.env.compose` to your EC2 public origin:
+1. **Verify your domain** is pointing to the EC2 Public IP.
+2. **Update `.env.compose`**:
+   ```env
+   DOMAIN=your-domain.com
+   EMAIL=your-email@example.com
+   NEXT_PUBLIC_API_URL=https://api.your-domain.com
+   NEXT_PUBLIC_WS_URL=wss://api.your-domain.com/ws
+   ```
+3. **Initialize SSL**:
+   Run the automated script once:
+   ```bash
+   ./docker/nginx/init-ssl.sh
+   ```
+   This script will:
+   - Prepare Nginx configurations.
+   - Obtain Let's Encrypt certificates.
+   - Start the Nginx reverse proxy.
 
-```env
-NEXT_PUBLIC_API_URL=http://<EC2_PUBLIC_IP>:8000
-NEXT_PUBLIC_WS_URL=ws://<EC2_PUBLIC_IP>:8000/ws
-```
+---
 
-If later you add domain + HTTPS:
+## 5. Important public URL values (for jury access)
+
+If you use the SSL setup (Step 4), your URLs will be:
 
 ```env
 NEXT_PUBLIC_API_URL=https://api.your-domain.com
 NEXT_PUBLIC_WS_URL=wss://api.your-domain.com/ws
+```
+
+Otherwise, if you stay on HTTP (not recommended):
+
+```env
+NEXT_PUBLIC_API_URL=http://<EC2_PUBLIC_IP>:8000
+NEXT_PUBLIC_WS_URL=ws://<EC2_PUBLIC_IP>:8000/ws
 ```
 
 ---
@@ -205,10 +239,10 @@ Backend entrypoint waits for Postgres, runs Alembic migrations, then starts API.
 
 Using EC2 public IP:
 
-- Frontend web: `http://<EC2_PUBLIC_IP>:3000`
-- Frontend mobile web: `http://<EC2_PUBLIC_IP>:3001`
-- Backend health: `http://<EC2_PUBLIC_IP>:8000/health`
-- Backend docs: `http://<EC2_PUBLIC_IP>:8000/docs`
+- Frontend web: `https://mizan.<DOMAIN>` (and `https://<DOMAIN>`)
+- Frontend mobile web: `https://mizanm.<DOMAIN>`
+- Backend health: `https://api.<DOMAIN>/health`
+- Backend docs: `https://api.<DOMAIN>/docs`
 
 ---
 
