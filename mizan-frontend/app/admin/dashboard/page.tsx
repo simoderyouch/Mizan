@@ -35,6 +35,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type KpiKey = keyof AdminDashboardResponse["kpis"];
+type ClassBarClickData = {
+  activePayload?: Array<{
+    payload?: {
+      className?: string;
+    };
+  }>;
+};
 
 const KPI_CONFIG: Array<{
   key: KpiKey;
@@ -123,9 +130,9 @@ export default function AdminDashboardPage() {
     return dashboard.risk_students.filter((s) => s.class_name === selectedClassFilter);
   }, [dashboard, selectedClassFilter]);
 
-  const handleBarClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload[0]) {
-      const className = data.activePayload[0].payload.className;
+  const handleBarClick = (data: ClassBarClickData) => {
+    const className = data.activePayload?.[0]?.payload?.className;
+    if (className) {
       setSelectedClassFilter((prev) => (prev === className ? null : className));
     }
   };

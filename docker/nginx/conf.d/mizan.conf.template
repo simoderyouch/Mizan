@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name ${DOMAIN} mizan.${DOMAIN} mizanm.${DOMAIN} api.${DOMAIN};
+    server_name ${DOMAIN} mizan.${DOMAIN} api.${DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -23,25 +23,6 @@ server {
 
     location / {
         proxy_pass http://frontend:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# Mobile Frontend (mizanm.)
-server {
-    listen 443 ssl;
-    server_name mizanm.${DOMAIN};
-
-    ssl_certificate /etc/letsencrypt/live/mizan.${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/mizan.${DOMAIN}/privkey.pem;
-    include /etc/nginx/conf.d/options-ssl-nginx.conf;
-    ssl_dhparam /etc/nginx/conf.d/ssl-dhparams.pem;
-
-    location / {
-        proxy_pass http://frontend-mobile:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

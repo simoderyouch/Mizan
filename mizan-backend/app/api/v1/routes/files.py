@@ -29,7 +29,7 @@ async def api_upload_student_photo(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    validate_image_file(file)
+    await validate_image_file(file)
 
     result = await db.execute(select(Student).where(Student.id == student_id))
     student = result.scalars().first()
@@ -102,7 +102,7 @@ async def api_upload_my_photo(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    validate_image_file(file)
+    await validate_image_file(file)
 
     result = await db.execute(select(Student).where(Student.user_id == current_user.id))
     student = result.scalars().first()

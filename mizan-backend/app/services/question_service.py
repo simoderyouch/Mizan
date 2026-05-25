@@ -363,6 +363,9 @@ def _validate_questions(period: CheckinPeriod, mode: CheckinMode, questions: lis
 
 async def generate_personalized_questions(context: dict, period: CheckinPeriod, mode: CheckinMode) -> list[dict]:
     fallback = _fallback_questions(context, period, mode)
+    if not (settings.MISTRAL_API_KEY or "").strip():
+        return fallback
+
     student = context.get("student", {})
     schedule = context.get("today_schedule", [])
     exams = context.get("upcoming_exams", [])
@@ -410,16 +413,19 @@ Rules:
 - All question texts and all option labels must be in English.
 """
 
-    client = Mistral(api_key=settings.MISTRAL_API_KEY)
-    response = await asyncio.to_thread(
-        client.chat.complete,
-        model=settings.MISTRAL_MODEL,
-        response_format={"type": "json_object"},
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw_content = _extract_chat_response_text(response) or "{}"
-    payload = json.loads(raw_content)
-    questions = payload.get("questions", []) if isinstance(payload, dict) else []
-    if not isinstance(questions, list):
+    try:
+        client = Mistral(api_key=settings.MISTRAL_API_KEY)
+        response = await asyncio.to_thread(
+            client.chat.complete,
+            model=settings.MISTRAL_MODEL,
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw_content = _extract_chat_response_text(response) or "{}"
+        payload = json.loads(raw_content)
+        questions = payload.get("questions", []) if isinstance(payload, dict) else []
+        if not isinstance(questions, list):
+            return fallback
+        return _validate_questions(period, mode, questions, context)
+    except Exception:
         return fallback
-    return _validate_questions(period, mode, questions, context)

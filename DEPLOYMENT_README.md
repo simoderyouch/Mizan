@@ -1,326 +1,246 @@
-# Mizan Jury Deployment (All-in-One Docker Compose on AWS)
+# Mizan Production Deployment Guide
 
-This guide deploys the full project in one stack:
+This guide describes the real production deployment path for Mizan.
 
-- `mizan-backend` (FastAPI)
-- `mizan-frontend` (web)
-- `mizan-frontend-mobile` (mobile web UI)
-- `postgres` (database)
+The deployed stack is:
 
-It is optimized for **competition/jury demo speed**, not for large-scale production.
+- `mizan-backend`: FastAPI API
+- `mizan-frontend`: Next.js web app
+- `postgres`: PostgreSQL database
+- `nginx`: HTTPS reverse proxy
+- `certbot`: Let's Encrypt renewal
 
----
+The local-only development/test PWA folder is not deployed and is ignored by git.
 
-## 1. Files added for this deployment
+## What You Need To Provide
 
-At repo root:
-- `docker-compose.yml`
-- `.env.compose.example`
+### 1. Domain
 
-Per app:
-- `mizan-backend/Dockerfile`
-- `mizan-backend/docker/entrypoint.sh`
-- `mizan-backend/.dockerignore`
-- `mizan-frontend/Dockerfile`
-- `mizan-frontend/.dockerignore`
-- `mizan-frontend-mobile/Dockerfile`
-- `mizan-frontend-mobile/.dockerignore`
+You need a domain you control, for example:
 
----
-
-## 2. First-time EC2 configuration (detailed)
-
-### 2.1 Launch EC2 instance
-
-Use these recommended settings:
-
-- **AMI**: Ubuntu Server 22.04 LTS (or 24.04)
-- **Instance type**: `t3.medium` minimum (2 vCPU, 4 GB RAM)
-- **Storage**: 30 GB `gp3`
-- **Auto-assign public IP**: enabled
-- **Key pair**: create/download a `.pem` key
-
-### 2.2 Security Group inbound rules
-
-Configure inbound exactly like this:
-
-- `22` (SSH) -> source: **your IP only** (recommended)
-- `80` (HTTP) -> source: `0.0.0.0/0` (for SSL challenge and redirect)
-- `443` (HTTPS) -> source: `0.0.0.0/0` (main entry point)
-
-Keep app ports and database private:
-- Do **not** open `3000`, `3001`, `8000` or `5432` publicly. They are handled by Nginx internally.
-
-### 2.3 Connect to instance
-
-From your local machine:
-
-```bash
-chmod 400 <your-key>.pem
-ssh -i <your-key>.pem ubuntu@<EC2_PUBLIC_IP>
+```text
+example.com
 ```
 
-### 2.4 Install Docker, Compose plugin, and Git
+Create DNS records after the server exists:
 
-Run on EC2:
+```text
+A  mizan  <SERVER_PUBLIC_IP>
+A  api    <SERVER_PUBLIC_IP>
+```
+
+Do not create or use `mizanm` for production; the PWA is local/dev-test only.
+
+### 2. Server
+
+Main target: AWS EC2 free tier where possible.
+
+Recommended AWS instance:
+
+```text
+AMI: Ubuntu Server 22.04 LTS or 24.04 LTS
+Instance type: t2.micro or t3.micro for free-tier style testing
+Storage: 20-30 GB gp3
+Security group:
+  22  your IP only
+  80  0.0.0.0/0
+  443 0.0.0.0/0
+```
+
+Important: EC2 free tier eligibility depends on your AWS account. GitHub Actions cannot create an AWS instance unless you provide AWS credentials and accept possible billing.
+
+### 3. Secrets
+
+Create a local `.env.compose` file on your machine or on the server. Do not commit it.
+
+Minimum required production values:
+
+```env
+DOMAIN=example.com
+EMAIL=you@example.com
+
+APP_ENV=production
+POSTGRES_DB=mizan
+POSTGRES_USER=mizan
+POSTGRES_PASSWORD=<strong-db-password>
+SECRET_KEY=<long-random-secret>
+
+BACKEND_CORS_ORIGINS=https://mizan.example.com
+NEXT_PUBLIC_API_URL=https://api.example.com
+NEXT_PUBLIC_WS_URL=wss://api.example.com/api/v1/voice/realtime
+```
+
+Optional but needed for full functionality:
+
+```env
+MISTRAL_API_KEY=<mistral-key>
+CLOUDINARY_CLOUD_NAME=<cloudinary-name>
+CLOUDINARY_API_KEY=<cloudinary-key>
+CLOUDINARY_API_SECRET=<cloudinary-secret>
+SMTP_USER=<smtp-user>
+SMTP_PASSWORD=<smtp-password>
+```
+
+Generate a strong secret:
+
+```bash
+python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(64))
+PY
+```
+
+## Manual AWS EC2 Setup
+
+SSH into the server:
+
+```bash
+ssh -i <your-key>.pem ubuntu@<SERVER_PUBLIC_IP>
+```
+
+Install Docker and Git:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg lsb-release
+sudo apt-get install -y ca-certificates curl gnupg git
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin git
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker $USER
 newgrp docker
 docker --version
 docker compose version
 ```
 
-### 2.5 Optional but recommended
+Clone the repository:
 
 ```bash
-sudo timedatectl set-timezone UTC
-sudo apt-get install -y htop
+git clone https://github.com/<OWNER>/<REPO>.git ~/mizan
+cd ~/mizan
 ```
 
----
-
-## 3. Clone project and prepare environment
+Create `.env.compose`:
 
 ```bash
-git clone <YOUR_REPO_URL>
-cd mizan
 cp .env.compose.example .env.compose
-```
-
-Edit `.env.compose`:
-
-```bash
 nano .env.compose
 ```
-
-Minimum values to set:
-- `SECRET_KEY`
-- `MISTRAL_API_KEY`
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
-- `DOMAIN` (e.g., `mizan.your-domain.com`)
-- `EMAIL` (for Certbot SSL alerts)
-
-If you keep defaults, internal DB works with:
-- `POSTGRES_DB=mizan`
-- `POSTGRES_USER=postgres`
-- `POSTGRES_PASSWORD=postgres`
-
-### 3.1 Initialize Docker DB from your local data (first start)
-
-This stack now supports automatic seed restore for Postgres on first initialization.
-
-How it works:
-- `docker/postgres/init/20-seed-restore.sh` runs only when Postgres volume is empty.
-- If `/seed/${DB_SEED_FILE}` exists, it restores it automatically.
-- Supported formats: `.dump`, `.sql`, `.sql.gz`
-
-Default env values:
-- `DB_AUTO_SEED=true`
-- `DB_SEED_FILE=local.dump`
-
-Place your seed file here before first `docker compose up`:
-
-```bash
-mkdir -p docker/postgres/seed
-cp <your_local_dump_file>.dump docker/postgres/seed/local.dump
-```
-
-If you already have local dumps in this repo:
-
-```bash
-cp mizan-backend/db_backups/source_*.dump docker/postgres/seed/local.dump
-```
-
-Or create a fresh local dump:
-
-```bash
-pg_dump -Fc -h 127.0.0.1 -U postgres -d mizan_local -f docker/postgres/seed/local.dump
-```
-
-Important:
-- Restore runs only on first DB init (empty Docker volume).
-- If DB was already initialized and you want to re-seed, reset volume:
-
-```bash
-docker compose down -v
-docker compose --env-file .env.compose up -d --build
-```
-
-### 3.2 DNS Configuration (For Vercel Portfolio Users)
-
-If your main domain (e.g. `yourdomain.com`) is already pointing to **Vercel**, you can still use **Mizan subdomains** on EC2 without breaking your portfolio.
-
-1. **Find your EC2 Public IP**: In AWS Console -> Copy "Public IPv4 address".
-2. **Login to Namecheap** -> Advanced DNS.
-3. **Add ONLY these A records** (Do NOT change `@` or `www` if Vercel uses them):
-   - **Type**: `A Record` | **Host**: `mizan` | **Value**: `<EC2_PUBLIC_IP>`
-   - **Type**: `A Record` | **Host**: `mizanm` | **Value**: `<EC2_PUBLIC_IP>`
-   - **Type**: `A Record` | **Host**: `api` | **Value**: `<EC2_PUBLIC_IP>`
-4. **Wait**: DNS propagation is usually fast for new subdomains.
-
----
-
-### 4. SSL / HTTPS Setup (Recommended)
-
-To deploy with SSL (HTTPS) using Let's Encrypt:
-
-1. **Verify your domain** is pointing to the EC2 Public IP.
-2. **Update `.env.compose`**:
-   ```env
-   DOMAIN=your-domain.com
-   EMAIL=your-email@example.com
-   NEXT_PUBLIC_API_URL=https://api.your-domain.com
-   NEXT_PUBLIC_WS_URL=wss://api.your-domain.com/ws
-   ```
-3. **Initialize SSL**:
-   Run the automated script once:
-   ```bash
-   ./docker/nginx/init-ssl.sh
-   ```
-   This script will:
-   - Prepare Nginx configurations.
-   - Obtain Let's Encrypt certificates.
-   - Start the Nginx reverse proxy.
-
----
-
-## 5. Important public URL values (for jury access)
-
-If you use the SSL setup (Step 4), your URLs will be:
-
-```env
-NEXT_PUBLIC_API_URL=https://api.your-domain.com
-NEXT_PUBLIC_WS_URL=wss://api.your-domain.com/ws
-```
-
-Otherwise, if you stay on HTTP (not recommended):
-
-```env
-NEXT_PUBLIC_API_URL=http://<EC2_PUBLIC_IP>:8000
-NEXT_PUBLIC_WS_URL=ws://<EC2_PUBLIC_IP>:8000/ws
-```
-
----
-
-## 5. Run the full stack
 
 Build and start:
 
 ```bash
 docker compose --env-file .env.compose up -d --build
+docker compose --env-file .env.compose ps
+docker compose --env-file .env.compose logs -f backend
 ```
 
-Check status:
+Initialize HTTPS after DNS points to the server:
 
 ```bash
-docker compose ps
-docker compose logs -f backend
+./docker/nginx/init-ssl.sh
 ```
 
-Backend entrypoint waits for Postgres, runs Alembic migrations, then starts API.
-
----
-
-## 6. Jury demo URLs
-
-Using EC2 public IP:
-
-- Frontend web: `https://mizan.<DOMAIN>` (and `https://<DOMAIN>`)
-- Frontend mobile web: `https://mizanm.<DOMAIN>`
-- Backend health: `https://api.<DOMAIN>/health`
-- Backend docs: `https://api.<DOMAIN>/docs`
-
----
-
-## 7. Common operations
-
-Update after new code:
+Check:
 
 ```bash
-git pull
-docker compose --env-file .env.compose up -d --build
+curl -fsS https://api.example.com/health
+curl -fsS https://api.example.com/api/v1/health/detailed
 ```
 
-Restart:
+## GitHub Actions CI/CD
+
+The workflow file is:
+
+```text
+.github/workflows/ci-cd.yml
+```
+
+It runs:
+
+- backend tests
+- frontend lint/build
+- mobile typecheck
+- deploy to the server after push to `main`, only if deploy secrets exist
+
+Add these GitHub repository secrets:
+
+```text
+DEPLOY_HOST=<server-public-ip-or-domain>
+DEPLOY_USER=ubuntu
+DEPLOY_PORT=22
+DEPLOY_PATH=/home/ubuntu/mizan
+DEPLOY_SSH_KEY=<private key that can SSH into the server>
+ENV_COMPOSE_BASE64=<base64 of .env.compose>
+DEPLOY_HEALTH_URL=https://api.example.com/health
+```
+
+Create `ENV_COMPOSE_BASE64` locally:
 
 ```bash
-docker compose restart
+base64 -w 0 .env.compose
 ```
 
-Stop:
+If deploy secrets are missing, CI passes but deployment is skipped.
+
+## Optional: AWS Instance Creation With Terraform
+
+Terraform files are available in:
+
+```text
+infra/aws/
+```
+
+You can run Terraform locally, or trigger the GitHub Actions workflow manually with `provision_aws=true`.
+
+Instance creation needs your AWS credentials and billing approval.
+
+You would need to provide:
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_REGION
+AWS_SSH_PUBLIC_KEY
+AWS_SSH_ALLOWED_CIDR
+```
+
+Recommended GitHub secret values:
+
+```text
+AWS_REGION=eu-west-3
+AWS_SSH_PUBLIC_KEY=<contents of your public SSH key>
+AWS_SSH_ALLOWED_CIDR=<your-public-ip>/32
+```
+
+Manual EC2 creation is still recommended if you want the strongest control over free-tier limits and costs.
+
+## Backup
+
+Create a backup:
 
 ```bash
-docker compose down
+docker compose --env-file .env.compose exec db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/mizan_backup.dump
+docker cp mizan-db:/tmp/mizan_backup.dump ./mizan_backup.dump
 ```
 
-Stop and remove DB volume (danger: data loss):
+Verify backup:
 
 ```bash
-docker compose down -v
+pg_restore --list ./mizan_backup.dump >/dev/null
 ```
 
----
+## Production Go / No-Go
 
-## 8. Optional simple GitHub -> AWS auto-deploy (compose)
+Go only if:
 
-If you still want a basic pipeline:
-
-1. Keep this same Compose setup on EC2.
-2. Use GitHub Actions to SSH into EC2 and run:
-   - `git pull`
-   - `docker compose --env-file .env.compose up -d --build`
-
-You will need GitHub repository secrets:
-- `EC2_HOST`
-- `EC2_USER`
-- `EC2_SSH_PRIVATE_KEY`
-- `EC2_APP_PATH` (example: `/home/ubuntu/mizan`)
-
----
-
-## 9. Troubleshooting
-
-Frontend cannot reach backend:
-- Verify `NEXT_PUBLIC_API_URL` in `.env.compose`
-- Rebuild frontend containers after changing it:
-  ```bash
-  docker compose --env-file .env.compose up -d --build frontend frontend-mobile
-  ```
-
-Backend crash at startup:
-- Check logs:
-  ```bash
-  docker compose logs -f backend
-  ```
-- Ensure required env values exist (`SECRET_KEY`, provider keys)
-
-Database connection issues:
-- Ensure `db` container is healthy:
-  ```bash
-  docker compose ps
-  docker compose logs -f db
-  ```
-
----
-
-## 10. Recommended demo mode
-
-For jury stability:
-1. Deploy this stack at least once before presentation day
-2. Seed realistic demo data
-3. Keep one terminal with `docker compose logs -f backend` for quick diagnosis
-4. Do not change env vars right before the demo unless necessary
+- `SECRET_KEY` is strong and not default
+- `POSTGRES_PASSWORD` is strong and not default
+- DNS points to the server
+- HTTPS is working
+- backend health is reachable
+- detailed health reports database connected
+- GitHub Actions CI passes
+- database backup has been tested

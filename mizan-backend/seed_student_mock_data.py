@@ -267,7 +267,7 @@ async def seed_mock_data(student_email: str | None, seed_all: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed mock data for a student dashboard demo")
+    parser = argparse.ArgumentParser(description="Seed mock data for a student dashboard validation environment")
     parser.add_argument("--email", help="Student user email")
     parser.add_argument("--all", action="store_true", help="Seed mock data for all students")
     args = parser.parse_args()

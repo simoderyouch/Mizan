@@ -1,13 +1,67 @@
 # app/services/resource_service.py
 from typing import List
 
-from sqlalchemy import func, select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from uuid import UUID
 
 from app.models.resource import ResourceType, WellbeingResource
 from app.schemas.resource import ResourceCreate, ResourceUpdate
+
+
+DEFAULT_RESOURCES = [
+    {
+        "title": "Guided 4-7-8 Breathing Technique",
+        "description": "The official 4-7-8 breathing exercise by Dr. Andrew Weil. A natural tranquilizer for the nervous system.",
+        "category": "Stress Management",
+        "type": ResourceType.VIDEO,
+        "url": "https://www.youtube.com/watch?v=17Xp-2J7Svs",
+        "tags": ["stress", "anxiety", "sleep", "calm"],
+        "mood_trigger": "anxiete",
+        "ai_instruction": "Recommend this video as a first step for students reporting high anxiety or trouble falling asleep. It works in under 2 minutes.",
+    },
+    {
+        "title": "Mastering Sleep Hygiene",
+        "description": "Comprehensive guide on creating the perfect sleep environment and habits for peak cognitive performance.",
+        "category": "Physical Health",
+        "type": ResourceType.ARTICLE,
+        "url": "https://www.sleepfoundation.org/sleep-hygiene",
+        "tags": ["sleep", "rest", "energy", "health"],
+        "mood_trigger": "stress",
+        "ai_instruction": "Offer this guide if a student mentions feeling constantly tired or 'brain fogged' despite studying.",
+    },
+    {
+        "title": "The Pomodoro Technique Explained",
+        "description": "A deep dive into the world's most popular productivity method to help you study smarter, not longer.",
+        "category": "Academic Performance",
+        "type": ResourceType.VIDEO,
+        "url": "https://www.youtube.com/watch?v=mNBmG24djoY",
+        "tags": ["productivity", "focus", "revision", "study"],
+        "mood_trigger": "motivation",
+        "ai_instruction": "Suggest this when a student is overwhelmed by a large assignment or struggling to stay seated for study sessions.",
+    },
+    {
+        "title": "How to Deal with Exam Stress",
+        "description": "14 practical and evidence-based tips to manage the pressure of the exam season.",
+        "category": "Academic Support",
+        "type": ResourceType.ARTICLE,
+        "url": "https://www.savethestudent.org/extra-guides/health/how-to-deal-with-exam-stress.html",
+        "tags": ["exams", "stress", "pressure", "action"],
+        "mood_trigger": "performance",
+        "ai_instruction": "Send this to students who express fear of failure or intense pressure during the finals season.",
+    },
+    {
+        "title": "5-4-3-2-1 Grounding Technique",
+        "description": "Complete guide to the sensory grounding method to stop a panic attack in its tracks.",
+        "category": "Crisis Support",
+        "type": ResourceType.ARTICLE,
+        "url": "https://www.healthline.com/health/grounding-techniques",
+        "tags": ["anxiety", "panic", "grounding", "safety"],
+        "mood_trigger": "anxiete",
+        "ai_instruction": "Critical: Mention this grounding exercise immediately if a student describes physical symptoms of a panic attack (racing heart, shortness of breath).",
+    },
+]
 
 
 async def get_resources_for_mood(db: AsyncSession, mood_score: int) -> List[WellbeingResource]:
@@ -80,63 +134,16 @@ async def delete_resource(db: AsyncSession, resource_id: UUID) -> None:
 
 
 async def seed_default_resources(db: AsyncSession) -> None:
-    # Clear existing resources for a fresh start as requested
-    await db.execute(delete(WellbeingResource))
-    
-    defaults = [
-        {
-            "title": "Guided 4-7-8 Breathing Technique",
-            "description": "The official 4-7-8 breathing exercise by Dr. Andrew Weil. A natural tranquilizer for the nervous system.",
-            "category": "Stress Management",
-            "type": ResourceType.VIDEO,
-            "url": "https://www.youtube.com/watch?v=17Xp-2J7Svs",
-            "tags": ["stress", "anxiety", "sleep", "calm"],
-            "mood_trigger": "anxiete",
-            "ai_instruction": "Recommend this video as a first step for students reporting high anxiety or trouble falling asleep. It works in under 2 minutes."
-        },
-        {
-            "title": "Mastering Sleep Hygiene",
-            "description": "Comprehensive guide on creating the perfect sleep environment and habits for peak cognitive performance.",
-            "category": "Physical Health",
-            "type": ResourceType.ARTICLE,
-            "url": "https://www.sleepfoundation.org/sleep-hygiene",
-            "tags": ["sleep", "rest", "energy", "health"],
-            "mood_trigger": "stress",
-            "ai_instruction": "Offer this guide if a student mentions feeling constantly tired or 'brain fogged' despite studying."
-        },
-        {
-            "title": "The Pomodoro Technique Explained",
-            "description": "A deep dive into the world's most popular productivity method to help you study smarter, not longer.",
-            "category": "Academic Performance",
-            "type": ResourceType.VIDEO,
-            "url": "https://www.youtube.com/watch?v=mNBmG24djoY",
-            "tags": ["productivity", "focus", "revision", "study"],
-            "mood_trigger": "motivation",
-            "ai_instruction": "Suggest this when a student is overwhelmed by a large assignment or struggling to stay seated for study sessions."
-        },
-        {
-            "title": "How to Deal with Exam Stress",
-            "description": "14 practical and evidence-based tips to manage the pressure of the exam season.",
-            "category": "Academic Support",
-            "type": ResourceType.ARTICLE,
-            "url": "https://www.savethestudent.org/extra-guides/health/how-to-deal-with-exam-stress.html",
-            "tags": ["exams", "stress", "pressure", "action"],
-            "mood_trigger": "performance",
-            "ai_instruction": "Send this to students who express fear of failure or intense pressure during the finals season."
-        },
-        {
-            "title": "5-4-3-2-1 Grounding Technique",
-            "description": "Complete guide to the sensory grounding method to stop a panic attack in its tracks.",
-            "category": "Crisis Support",
-            "type": ResourceType.ARTICLE,
-            "url": "https://www.healthline.com/health/grounding-techniques",
-            "tags": ["anxiety", "panic", "grounding", "safety"],
-            "mood_trigger": "anxiete",
-            "ai_instruction": "Critical: Mention this grounding exercise immediately if a student describes physical symptoms of a panic attack (racing heart, shortness of breath)."
-        }
-    ]
-    
-    for r_data in defaults:
+    default_titles = [resource["title"] for resource in DEFAULT_RESOURCES]
+    result = await db.execute(
+        select(WellbeingResource.title).where(WellbeingResource.title.in_(default_titles))
+    )
+    existing_titles = set(result.scalars().all())
+
+    added_count = 0
+    for r_data in DEFAULT_RESOURCES:
+        if r_data["title"] in existing_titles:
+            continue
         resource = WellbeingResource(
             title=r_data["title"],
             description=r_data["description"],
@@ -148,5 +155,7 @@ async def seed_default_resources(db: AsyncSession) -> None:
             ai_instruction=r_data["ai_instruction"]
         )
         db.add(resource)
+        added_count += 1
         
-    await db.commit()
+    if added_count:
+        await db.commit()

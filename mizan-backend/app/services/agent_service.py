@@ -8,6 +8,10 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
+def _mistral_configured() -> bool:
+    return bool((settings.MISTRAL_API_KEY or "").strip())
+
+
 def _compute_stress_level(stress: dict) -> str:
     score = 0
     if stress.get("has_exam_tomorrow"):
@@ -71,6 +75,20 @@ def _extract_chat_response_text(response) -> str:
     return _extract_message_text(getattr(message, "content", ""))
 
 async def generate_advanced_ritual_report(context: dict, ritual_type: str, data: dict, mode: str) -> dict:
+    if not _mistral_configured():
+        mood = data.get("mood_score", "Unknown")
+        sleep = data.get("sleep_hours")
+        sleep_text = f" and {sleep}h sleep" if sleep not in (None, "", "Unknown") else ""
+        return {
+            "executive_summary": f"{ritual_type.title()} check-in saved locally with mood {mood}{sleep_text}.",
+            "detailed_action_plan": [
+                "Choose one realistic priority for the next study block.",
+                "Schedule one short recovery pause before the day gets crowded.",
+                "Review the plan at the next check-in and adjust the load.",
+            ],
+            "detected_risks": [],
+        }
+
     client = Mistral(api_key=settings.MISTRAL_API_KEY)
     
     schedule = context.get("today_schedule", [])
@@ -138,6 +156,20 @@ You must output ONLY valid JSON using the following schema exactly:
 
 
 async def chat_with_agent(context: dict, student_message: str) -> str:
+    if not _mistral_configured():
+        student = context.get("student", {})
+        name = student.get("name", "there")
+        tasks = context.get("today_tasks", [])
+        task_hint = ""
+        if tasks:
+            first_task = tasks[0].get("title", "your first task")
+            task_hint = f" A good next step is to protect 25 minutes for: {first_task}."
+        return (
+            f"Hi {name}. I can still help with a local response while the AI provider is not configured."
+            " Keep the next step small: pick one priority, time-box it, then take a short pause."
+            f"{task_hint}"
+        )
+
     client = Mistral(api_key=settings.MISTRAL_API_KEY)
 
     student = context.get("student", {})
@@ -243,6 +275,16 @@ Instructions:
 
 
 async def generate_daily_plan(context: dict, sleep_hours: float, mood_score: int) -> str:
+    if not _mistral_configured():
+        recovery = "Add a 20-minute recovery break before heavy work." if sleep_hours < 6 or mood_score <= 2 else "Keep one intentional break between focus blocks."
+        return "\n".join(
+            [
+                "Start with one 30-minute priority focus block.",
+                recovery,
+                "End the day by checking what should move to tomorrow.",
+            ]
+        )
+
     client = Mistral(api_key=settings.MISTRAL_API_KEY)
     
     stress_level = _compute_stress_level(context.get("stress_indicators", {}))

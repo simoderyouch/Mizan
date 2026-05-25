@@ -12,12 +12,26 @@
 #   CLOUDINARY_API_KEY: str
 #   CLOUDINARY_API_SECRET: str
 # app/core/config.py
+import os
+from pathlib import Path
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ENV_FILE = os.path.join(BASE_DIR, ".env")
 
 
 class Settings(BaseSettings):
     APP_ENV: str = "development"
+    BACKEND_CORS_ORIGINS: str = (
+        "http://localhost:3000,"
+        "http://localhost:3001,"
+        "http://localhost:8081,"
+        "http://127.0.0.1:3000,"
+        "http://127.0.0.1:3001"
+    )
+    ENABLE_SCHEDULER: bool = True
     
     DATABASE_URL: str
     USE_LOCAL_DATABASE: bool = False
@@ -36,6 +50,11 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
+    AUTH_RATE_LIMIT_MAX_REQUESTS: int = 10
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: int = 60
+    MAX_IMAGE_UPLOAD_BYTES: int = 5 * 1024 * 1024
+    MAX_AUDIO_UPLOAD_BYTES: int = 25 * 1024 * 1024
+    MAX_CSV_UPLOAD_BYTES: int = 5 * 1024 * 1024
     
     MISTRAL_API_KEY: str
     MISTRAL_MODEL: str = "mistral-large-latest"
@@ -53,7 +72,32 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="after")
+    def validate_production_safety(self):
+        if self.APP_ENV != "production":
+            return self
+
+        weak_secret_values = {
+            "change-me",
+            "change-me-in-production",
+            "change-this-before-public-deploy",
+            "secret",
+            "your-secret-key",
+        }
+        normalized_secret = (self.SECRET_KEY or "").strip()
+        if normalized_secret in weak_secret_values or len(normalized_secret) < 32:
+            raise ValueError("SECRET_KEY must be a strong non-default value when APP_ENV=production")
+
+        if "*" in self.cors_origins:
+            raise ValueError("BACKEND_CORS_ORIGINS cannot include '*' when APP_ENV=production")
+
+        database_url = self.resolved_database_url
+        if ":postgres@" in database_url or database_url.endswith(":postgres"):
+            raise ValueError("DATABASE_URL must not use the default postgres password when APP_ENV=production")
+
+        return self
 
     @property
     def resolved_database_url(self) -> str:
@@ -62,6 +106,15 @@ class Settings(BaseSettings):
                 raise ValueError("LOCAL_DATABASE_URL must be set when USE_LOCAL_DATABASE=true")
             return self.LOCAL_DATABASE_URL
         return self.DATABASE_URL
+
+    @property
+    def cors_origins(self) -> list[str]:
+        origins = [
+            origin.strip().rstrip("/")
+            for origin in self.BACKEND_CORS_ORIGINS.split(",")
+            if origin.strip()
+        ]
+        return origins or []
 
 
 @lru_cache

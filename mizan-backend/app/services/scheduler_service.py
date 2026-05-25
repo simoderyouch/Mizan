@@ -86,6 +86,7 @@ class AutonomousScheduler:
                     # Small delay between students to avoid LLM rate limits or CPU spikes
                     await asyncio.sleep(1)
                 except Exception as e:
+                    await db.rollback()
                     logger.error("Failed periodic scan for student %s: %s", student_id, e)
 
     async def _load_latest_periodic_scan_state(

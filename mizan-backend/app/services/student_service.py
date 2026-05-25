@@ -61,7 +61,7 @@ def _ensure_admin_scope(current_user: User, target_school_id: UUID) -> None:
 
 
 async def import_students_from_csv(db: AsyncSession, current_user: User, class_id: UUID, file: UploadFile) -> int:
-    validate_csv_file(file) 
+    await validate_csv_file(file)
     _ensure_admin_scope(current_user, await _get_school_id_for_class(db, class_id))
     await _verify_class_exists(db, class_id)
     rows = await parse_trombi_csv(file)

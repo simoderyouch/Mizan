@@ -22,11 +22,13 @@ from app.api.v1.routes.tasks import router as tasks_router
 from app.api.v1.routes.voice import router as voice_router
 from app.api.v1.routes.global_admin import router as global_admin_router
 from app.api.v1.routes.notifications import router as notifications_router
+from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal, get_db
 from app.services.resource_service import seed_default_resources
 from app.services.scheduler_service import scheduler
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 @asynccontextmanager
@@ -37,13 +39,17 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.exception("Startup resource seeding skipped due to DB connectivity issue: %s", exc)
     
-    # Start the Autonomous Scheduler
-    await scheduler.start()
+    scheduler_started = False
+    if settings.ENABLE_SCHEDULER:
+        await scheduler.start()
+        scheduler_started = True
+    else:
+        logger.info("Autonomous scheduler disabled by ENABLE_SCHEDULER=false")
     
     yield
     
-    # Stop the Autonomous Scheduler
-    await scheduler.stop()
+    if scheduler_started:
+        await scheduler.stop()
 
 app = FastAPI(
     title="Mizan API",
@@ -54,7 +60,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,6 +100,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     return {
         "status": "ok",
         "database": db_status,
+        "scheduler_enabled": settings.ENABLE_SCHEDULER,
         "services": [
             "auth", 
             "institutional", 

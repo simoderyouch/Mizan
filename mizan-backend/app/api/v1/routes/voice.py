@@ -8,6 +8,7 @@ from app.core.database import AsyncSessionLocal, get_db
 from app.core.security import decode_token
 from app.core.dependencies import get_current_user
 from app.models.user import User
+from app.services.file_service import validate_audio_file_metadata
 from app.schemas.voice import (
     VoiceAnalysisResponse,
     VoiceSessionResponse,
@@ -76,6 +77,7 @@ async def api_transcribe_audio(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
+    validate_audio_file_metadata(file)
     text = await transcribe_audio(file)
     return {"transcription": text}
 
