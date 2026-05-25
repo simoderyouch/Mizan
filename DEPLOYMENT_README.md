@@ -1,87 +1,99 @@
-# Mizan Production Deployment Guide
+# Mizan AWS Deployment Guide
 
-This guide describes the real production deployment path for Mizan.
+This is the recommended production-style deployment for the demo.
 
-The deployed stack is:
+The deployed stack is split:
 
-- `mizan-backend`: FastAPI API
-- `mizan-frontend`: Next.js web app
-- `postgres`: PostgreSQL database
-- `nginx`: HTTPS reverse proxy
-- `certbot`: Let's Encrypt renewal
+- `mizan-frontend`: Next.js Docker container on ECS Fargate
+- `mizan-backend`: FastAPI Docker container on ECS Fargate
+- `postgres`: private RDS PostgreSQL
+- `alb`: Application Load Balancer routing frontend and API traffic
+- `CloudFront`: HTTPS public entry point in front of the ALB
+- `Secrets Manager`: backend environment and provider secrets
+- `ECR`: frontend and backend Docker image registry
+- `CloudWatch`: frontend and backend logs
 
-The local-only development/test PWA folder is not deployed and is ignored by git.
+The local-only PWA folder is not deployed and is ignored by git.
+
+## Best Demo Strategy
+
+For your plan, use the AWS stack only around the demo:
+
+1. Create the Terraform state bucket once.
+2. Add GitHub secrets.
+3. Run the deploy workflow the day before the demo.
+4. Test login, API health, AI/upload features, and frontend navigation.
+5. Run the demo.
+6. Run the destroy workflow immediately after.
+
+The Terraform defaults are intentionally demo-friendly: one frontend task, one backend task, small RDS, no NAT Gateway, no multi-AZ database, and easy teardown.
 
 ## What You Need To Provide
 
-### 1. Domain
+### 1. AWS Account
 
-You need a domain you control, for example:
+Use an AWS account with billing alerts enabled. If you are using the AWS `$100` Free Tier credit, this stack should be reasonable for a short run, but AWS can still charge you if usage exceeds credits or if credits do not apply to a service.
 
-```text
-example.com
-```
-
-Create DNS records after the server exists:
+Create budget alerts before deploying:
 
 ```text
-A  mizan  <SERVER_PUBLIC_IP>
-A  api    <SERVER_PUBLIC_IP>
+$20 alert
+$50 alert
+$90 alert
 ```
 
-Do not create or use `mizanm` for production; the PWA is local/dev-test only.
+### 2. AWS IAM Credentials
 
-### 2. Server
-
-Main target: AWS EC2 free tier where possible.
-
-Recommended AWS instance:
+For GitHub Actions, provide IAM credentials with permission to manage:
 
 ```text
-AMI: Ubuntu Server 22.04 LTS or 24.04 LTS
-Instance type: t2.micro or t3.micro for free-tier style testing
-Storage: 20-30 GB gp3
-Security group:
-  22  your IP only
-  80  0.0.0.0/0
-  443 0.0.0.0/0
+ECR
+ECS
+Fargate
+RDS
+EC2 security groups/load balancers
+CloudFront
+Secrets Manager
+CloudWatch Logs
+IAM roles/policies
+Terraform state S3 bucket access
 ```
 
-Important: EC2 free tier eligibility depends on your AWS account. GitHub Actions cannot create an AWS instance unless you provide AWS credentials and accept possible billing.
+For a quick demo, an admin-level temporary IAM user is simpler. For long-term production, use GitHub OIDC and least-privilege IAM.
 
-### 3. Secrets
+### 3. Terraform State Bucket
 
-Create a local `.env.compose` file on your machine or on the server. Do not commit it.
+Create one S3 bucket for Terraform state:
 
-Minimum required production values:
-
-```env
-DOMAIN=example.com
-EMAIL=you@example.com
-
-APP_ENV=production
-POSTGRES_DB=mizan
-POSTGRES_USER=mizan
-POSTGRES_PASSWORD=<strong-db-password>
-SECRET_KEY=<long-random-secret>
-
-BACKEND_CORS_ORIGINS=https://mizan.example.com
-NEXT_PUBLIC_API_URL=https://api.example.com
-NEXT_PUBLIC_WS_URL=wss://api.example.com/api/v1/voice/realtime
+```bash
+aws s3 mb s3://<unique-tf-state-bucket> --region eu-west-3
+aws s3api put-bucket-versioning \
+  --bucket <unique-tf-state-bucket> \
+  --versioning-configuration Status=Enabled
 ```
 
-Optional but needed for full functionality:
+Keep this bucket after the demo if you may redeploy later. If you delete it, Terraform loses the map of what it created.
 
-```env
-MISTRAL_API_KEY=<mistral-key>
-CLOUDINARY_CLOUD_NAME=<cloudinary-name>
-CLOUDINARY_API_KEY=<cloudinary-key>
-CLOUDINARY_API_SECRET=<cloudinary-secret>
-SMTP_USER=<smtp-user>
-SMTP_PASSWORD=<smtp-password>
+### 4. GitHub Secrets
+
+Required for AWS deploy:
+
+```text
+AWS_DEPLOY_ENABLED=true
+AWS_ACCESS_KEY_ID=<access-key>
+AWS_SECRET_ACCESS_KEY=<secret-key>
+AWS_REGION=eu-west-3
+TF_STATE_BUCKET=<unique-tf-state-bucket>
+TF_STATE_KEY=mizan/demo/terraform.tfstate
 ```
 
-Generate a strong secret:
+Recommended backend secret:
+
+```text
+BACKEND_SECRET_KEY=<long-random-secret>
+```
+
+Generate it locally:
 
 ```bash
 python3 - <<'PY'
@@ -90,69 +102,22 @@ print(secrets.token_urlsafe(64))
 PY
 ```
 
-## Manual AWS EC2 Setup
+Optional feature secrets:
 
-SSH into the server:
-
-```bash
-ssh -i <your-key>.pem ubuntu@<SERVER_PUBLIC_IP>
+```text
+MISTRAL_API_KEY=<mistral-key>
+CLOUDINARY_CLOUD_NAME=<cloudinary-name>
+CLOUDINARY_API_KEY=<cloudinary-key>
+CLOUDINARY_API_SECRET=<cloudinary-secret>
+SMTP_USER=<smtp-user>
+SMTP_PASSWORD=<smtp-password>
 ```
 
-Install Docker and Git:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg git
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker $USER
-newgrp docker
-docker --version
-docker compose version
-```
-
-Clone the repository:
-
-```bash
-git clone https://github.com/<OWNER>/<REPO>.git ~/mizan
-cd ~/mizan
-```
-
-Create `.env.compose`:
-
-```bash
-cp .env.compose.example .env.compose
-nano .env.compose
-```
-
-Build and start:
-
-```bash
-docker compose --env-file .env.compose up -d --build
-docker compose --env-file .env.compose ps
-docker compose --env-file .env.compose logs -f backend
-```
-
-Initialize HTTPS after DNS points to the server:
-
-```bash
-./docker/nginx/init-ssl.sh
-```
-
-Check:
-
-```bash
-curl -fsS https://api.example.com/health
-curl -fsS https://api.example.com/api/v1/health/detailed
-```
+If optional provider secrets are missing, the base app can deploy, but related AI/upload/email features may not work.
 
 ## GitHub Actions CI/CD
 
-The workflow file is:
+Workflow:
 
 ```text
 .github/workflows/ci-cd.yml
@@ -163,84 +128,91 @@ It runs:
 - backend tests
 - frontend lint/build
 - mobile typecheck
-- deploy to the server after push to `main`, only if deploy secrets exist
+- AWS deploy on push to `main`, only when `AWS_DEPLOY_ENABLED=true`
+- manual AWS deploy/destroy through `workflow_dispatch`
 
-Add these GitHub repository secrets:
+Manual deploy:
 
 ```text
-DEPLOY_HOST=<server-public-ip-or-domain>
-DEPLOY_USER=ubuntu
-DEPLOY_PORT=22
-DEPLOY_PATH=/home/ubuntu/mizan
-DEPLOY_SSH_KEY=<private key that can SSH into the server>
-ENV_COMPOSE_BASE64=<base64 of .env.compose>
-DEPLOY_HEALTH_URL=https://api.example.com/health
+GitHub -> Actions -> CI/CD -> Run workflow -> aws_action=deploy
 ```
 
-Create `ENV_COMPOSE_BASE64` locally:
+Manual destroy:
+
+```text
+GitHub -> Actions -> CI/CD -> Run workflow -> aws_action=destroy
+```
+
+## What Deploy Does
+
+The deploy job:
+
+1. Creates the frontend and backend ECR repositories if needed.
+2. Builds `mizan-backend/Dockerfile`.
+3. Pushes the backend image to ECR using the commit SHA tag.
+4. Builds a bootstrap `mizan-frontend/Dockerfile` image.
+5. Applies Terraform for ECS, RDS, ALB, CloudFront, secrets, IAM, and logs.
+6. Reads the deployed CloudFront URL from Terraform output.
+7. Rebuilds the frontend image with the deployed API/WebSocket URLs.
+8. Applies Terraform again to switch ECS to the final frontend image.
+9. Invalidates CloudFront.
+10. Calls the backend `/health` endpoint.
+
+## Public URLs
+
+Terraform outputs the URLs:
 
 ```bash
-base64 -w 0 .env.compose
+cd infra/aws
+terraform output app_url
+terraform output frontend_url
+terraform output api_url
+terraform output api_health_url
 ```
 
-If deploy secrets are missing, CI passes but deployment is skipped.
+For the first demo version, use the generated CloudFront domain directly. A custom domain can be added later with Route 53 and ACM.
 
-## Optional: AWS Instance Creation With Terraform
+## Routing
 
-Terraform files are available in:
+CloudFront sends traffic to the ALB.
+
+The ALB routes:
 
 ```text
-infra/aws/
+/api/v1/*      -> backend ECS service
+/health        -> backend ECS service
+/docs          -> backend ECS service
+/openapi.json  -> backend ECS service
+everything else -> frontend ECS service
 ```
 
-You can run Terraform locally, or trigger the GitHub Actions workflow manually with `provision_aws=true`.
+## Shutdown After Demo
 
-Instance creation needs your AWS credentials and billing approval.
-
-You would need to provide:
+Preferred:
 
 ```text
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-AWS_REGION
-AWS_SSH_PUBLIC_KEY
-AWS_SSH_ALLOWED_CIDR
+GitHub -> Actions -> CI/CD -> Run workflow -> aws_action=destroy
 ```
 
-Recommended GitHub secret values:
-
-```text
-AWS_REGION=eu-west-3
-AWS_SSH_PUBLIC_KEY=<contents of your public SSH key>
-AWS_SSH_ALLOWED_CIDR=<your-public-ip>/32
-```
-
-Manual EC2 creation is still recommended if you want the strongest control over free-tier limits and costs.
-
-## Backup
-
-Create a backup:
+Local:
 
 ```bash
-docker compose --env-file .env.compose exec db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/mizan_backup.dump
-docker cp mizan-db:/tmp/mizan_backup.dump ./mizan_backup.dump
+cd infra/aws
+terraform destroy
 ```
 
-Verify backup:
+CloudFront deletion can take several minutes. Wait until destroy finishes before assuming billing has stopped.
 
-```bash
-pg_restore --list ./mizan_backup.dump >/dev/null
-```
-
-## Production Go / No-Go
+## Go / No-Go Checklist
 
 Go only if:
 
-- `SECRET_KEY` is strong and not default
-- `POSTGRES_PASSWORD` is strong and not default
-- DNS points to the server
-- HTTPS is working
-- backend health is reachable
-- detailed health reports database connected
-- GitHub Actions CI passes
-- database backup has been tested
+- GitHub Actions checks pass
+- AWS deploy job completes successfully
+- frontend URL opens
+- API health URL returns success
+- login works
+- detailed health shows database connected
+- Mistral/Cloudinary features are tested if used in the demo
+- budget alerts exist
+- destroy workflow has been tested once before the real demo day

@@ -7,11 +7,14 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      provision_aws:
-        description: "Create/update AWS EC2 infrastructure with Terraform"
-        required: false
-        default: false
-        type: boolean
+      aws_action:
+        description: "AWS action to run"
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - destroy
 
 concurrency:
   group: mizan-${{ github.ref }}
@@ -21,6 +24,7 @@ jobs:
   backend:
     name: Backend tests
     runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.aws_action == 'destroy') }}
     defaults:
       run:
         working-directory: mizan-backend
@@ -61,6 +65,7 @@ jobs:
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.aws_action == 'destroy') }}
     defaults:
       run:
         working-directory: mizan-frontend
@@ -92,6 +97,7 @@ jobs:
   mobile:
     name: Mobile typecheck
     runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.aws_action == 'destroy') }}
     defaults:
       run:
         working-directory: mizan-mobile-app
@@ -112,106 +118,249 @@ jobs:
       - name: Typecheck mobile app
         run: npm run typecheck
 
-  provision_aws:
-    name: Provision AWS infrastructure
+  deploy_aws:
+    name: Deploy AWS
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.provision_aws
-    defaults:
-      run:
-        working-directory: infra/aws
+    needs:
+      - backend
+      - frontend
+      - mobile
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.aws_action == 'deploy') }}
     env:
+      AWS_DEPLOY_ENABLED: ${{ secrets.AWS_DEPLOY_ENABLED }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
+      TF_STATE_REGION: ${{ secrets.TF_STATE_REGION }}
       TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
-      TF_VAR_ssh_public_key: ${{ secrets.AWS_SSH_PUBLIC_KEY }}
-      TF_VAR_ssh_allowed_cidr: ${{ secrets.AWS_SSH_ALLOWED_CIDR }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME || 'mizan' }}
+      TF_VAR_environment: ${{ vars.DEPLOY_ENVIRONMENT || 'demo' }}
+      TF_VAR_backend_image_tag: ${{ github.sha }}
+      TF_VAR_frontend_image_tag: ${{ github.sha }}-bootstrap
+      TF_VAR_backend_secret_key: ${{ secrets.BACKEND_SECRET_KEY }}
+      TF_VAR_mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
+      TF_VAR_cloudinary_cloud_name: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      TF_VAR_cloudinary_api_key: ${{ secrets.CLOUDINARY_API_KEY }}
+      TF_VAR_cloudinary_api_secret: ${{ secrets.CLOUDINARY_API_SECRET }}
+      TF_VAR_smtp_user: ${{ secrets.SMTP_USER }}
+      TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
     steps:
-      - name: Check AWS provisioning secrets
+      - name: Check AWS deploy configuration
+        id: deploy_config
         run: |
-          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AWS_REGION" ] || [ -z "$TF_VAR_ssh_public_key" ] || [ -z "$TF_VAR_ssh_allowed_cidr" ]; then
-            echo "Missing AWS provisioning secrets." >&2
+          if [ "$AWS_DEPLOY_ENABLED" != "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::AWS deployment skipped because AWS_DEPLOY_ENABLED is not true."
+            exit 0
+          fi
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AWS_REGION" ] || [ -z "$TF_STATE_BUCKET" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::AWS deployment skipped because AWS credentials or TF_STATE_BUCKET are missing."
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.deploy_config.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        if: steps.deploy_config.outputs.enabled == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set up Terraform
+        if: steps.deploy_config.outputs.enabled == 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Set up Node
+        if: steps.deploy_config.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mizan-frontend/package-lock.json
+
+      - name: Create Terraform backend config
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          cat > backend_override.tf <<'EOF'
+          terraform {
+            backend "s3" {}
+          }
+          EOF
+
+      - name: Terraform init
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          KEY="${TF_STATE_KEY:-mizan/demo/terraform.tfstate}"
+          REGION="${TF_STATE_REGION:-$AWS_REGION}"
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$KEY" \
+            -backend-config="region=$REGION"
+
+      - name: Bootstrap ECR repositories
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: terraform apply -target=aws_ecr_repository.backend -target=aws_ecr_repository.frontend -auto-approve
+
+      - name: Login to Amazon ECR
+        if: steps.deploy_config.outputs.enabled == 'true'
+        id: ecr_login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          ECR_REPOSITORY_URL="$(terraform output -raw backend_ecr_repository_url)"
+          cd ../..
+          docker build -t "$ECR_REPOSITORY_URL:${GITHUB_SHA}" mizan-backend
+          docker push "$ECR_REPOSITORY_URL:${GITHUB_SHA}"
+
+      - name: Build and push bootstrap frontend image
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          ECR_REPOSITORY_URL="$(terraform output -raw frontend_ecr_repository_url)"
+          cd ../..
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 \
+            --build-arg NEXT_PUBLIC_WS_URL=ws://localhost:8000/api/v1/voice/realtime \
+            -t "$ECR_REPOSITORY_URL:${GITHUB_SHA}-bootstrap" \
+            mizan-frontend
+          docker push "$ECR_REPOSITORY_URL:${GITHUB_SHA}-bootstrap"
+
+      - name: Apply AWS infrastructure
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: terraform apply -auto-approve
+
+      - name: Build and push final frontend image
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          API_URL="$(terraform output -raw api_url)"
+          ECR_REPOSITORY_URL="$(terraform output -raw frontend_ecr_repository_url)"
+          cd ../..
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="$API_URL" \
+            --build-arg NEXT_PUBLIC_WS_URL="${API_URL/https:/wss:}/api/v1/voice/realtime" \
+            -t "$ECR_REPOSITORY_URL:${GITHUB_SHA}" \
+            mizan-frontend
+          docker push "$ECR_REPOSITORY_URL:${GITHUB_SHA}"
+
+      - name: Deploy final frontend image
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: terraform apply -auto-approve -var="frontend_image_tag=${GITHUB_SHA}"
+
+      - name: Invalidate frontend cache
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          DISTRIBUTION_ID="$(terraform output -raw cloudfront_distribution_id)"
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+
+      - name: Health check
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          HEALTH_URL="$(terraform output -raw api_health_url)"
+          for i in $(seq 1 20); do
+            if curl -fsS "$HEALTH_URL"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
+
+      - name: Show deployment URLs
+        if: steps.deploy_config.outputs.enabled == 'true'
+        working-directory: infra/aws
+        run: |
+          echo "Frontend: $(terraform output -raw frontend_url)"
+          echo "API: $(terraform output -raw api_url)"
+
+  destroy_aws:
+    name: Destroy AWS
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.aws_action == 'destroy' }}
+    env:
+      AWS_DEPLOY_ENABLED: ${{ secrets.AWS_DEPLOY_ENABLED }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
+      TF_STATE_REGION: ${{ secrets.TF_STATE_REGION }}
+      TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME || 'mizan' }}
+      TF_VAR_environment: ${{ vars.DEPLOY_ENVIRONMENT || 'demo' }}
+      TF_VAR_frontend_image_tag: destroy-placeholder
+      TF_VAR_backend_secret_key: ${{ secrets.BACKEND_SECRET_KEY }}
+      TF_VAR_mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
+      TF_VAR_cloudinary_cloud_name: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      TF_VAR_cloudinary_api_key: ${{ secrets.CLOUDINARY_API_KEY }}
+      TF_VAR_cloudinary_api_secret: ${{ secrets.CLOUDINARY_API_SECRET }}
+      TF_VAR_smtp_user: ${{ secrets.SMTP_USER }}
+      TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
+    steps:
+      - name: Check AWS destroy configuration
+        run: |
+          if [ "$AWS_DEPLOY_ENABLED" != "true" ]; then
+            echo "AWS_DEPLOY_ENABLED must be true to destroy AWS resources." >&2
+            exit 1
+          fi
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AWS_REGION" ] || [ -z "$TF_STATE_BUCKET" ]; then
+            echo "Missing AWS credentials or TF_STATE_BUCKET." >&2
             exit 1
           fi
 
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Create Terraform backend config
+        working-directory: infra/aws
+        run: |
+          cat > backend_override.tf <<'EOF'
+          terraform {
+            backend "s3" {}
+          }
+          EOF
 
       - name: Terraform init
-        run: terraform init
-
-      - name: Terraform apply
-        run: terraform apply -auto-approve
-
-      - name: Show server IP
-        run: terraform output public_ip
-
-  deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
-    needs:
-      - backend
-      - frontend
-      - mobile
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      ENV_COMPOSE_BASE64: ${{ secrets.ENV_COMPOSE_BASE64 }}
-      DEPLOY_HEALTH_URL: ${{ secrets.DEPLOY_HEALTH_URL }}
-    steps:
-      - name: Check deploy configuration
-        id: deploy_config
+        working-directory: infra/aws
         run: |
-          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ] || [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$ENV_COMPOSE_BASE64" ]; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Deployment skipped because one or more deploy secrets are missing."
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          fi
+          KEY="${TF_STATE_KEY:-mizan/demo/terraform.tfstate}"
+          REGION="${TF_STATE_REGION:-$AWS_REGION}"
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$KEY" \
+            -backend-config="region=$REGION"
 
-      - name: Checkout
-        if: steps.deploy_config.outputs.enabled == 'true'
-        uses: actions/checkout@v4
-
-      - name: Start SSH agent
-        if: steps.deploy_config.outputs.enabled == 'true'
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Deploy with Docker Compose
-        if: steps.deploy_config.outputs.enabled == 'true'
-        run: |
-          set -euo pipefail
-          PORT="${DEPLOY_PORT:-22}"
-          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
-          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
-            set -euo pipefail
-            if [ -d '$DEPLOY_PATH/.git' ]; then
-              cd '$DEPLOY_PATH'
-              git fetch origin main
-              git reset --hard origin/main
-            else
-              rm -rf '$DEPLOY_PATH'
-              git clone 'https://github.com/${{ github.repository }}.git' '$DEPLOY_PATH'
-              cd '$DEPLOY_PATH'
-            fi
-          "
-          printf '%s' "$ENV_COMPOSE_BASE64" | ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" "base64 -d > '$DEPLOY_PATH/.env.compose'"
-          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
-            set -euo pipefail
-            cd '$DEPLOY_PATH'
-            docker compose --env-file .env.compose up -d --build
-            docker compose --env-file .env.compose exec -T backend alembic current
-          "
-
-      - name: Health check
-        if: steps.deploy_config.outputs.enabled == 'true' && env.DEPLOY_HEALTH_URL != ''
-        run: curl -fsS "$DEPLOY_HEALTH_URL"
+      - name: Destroy AWS infrastructure
+        working-directory: infra/aws
+        run: terraform destroy -auto-approve

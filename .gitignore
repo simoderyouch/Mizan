@@ -10,6 +10,14 @@ node_modules/
 .next/
 out/
 
+# Terraform state and local plans
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+terraform.tfvars.json
+
 # Local presentation material
 DEMO_*.md
 proposition_pp_mizan.pdf

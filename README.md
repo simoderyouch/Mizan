@@ -41,13 +41,13 @@ npm start
 
 ## Deployment
 
-Production deployment uses Docker Compose with:
+Production-style demo deployment uses AWS with:
 
-- backend
-- frontend
-- PostgreSQL
-- Nginx
-- Certbot
+- frontend Docker image on ECS Fargate
+- backend Docker image on ECS Fargate
+- PostgreSQL on private RDS
+- Application Load Balancer and CloudFront
+- Secrets Manager, ECR, and CloudWatch
 
 Read the full deployment guide:
 
@@ -61,7 +61,7 @@ GitHub Actions workflow:
 .github/workflows/ci-cd.yml
 ```
 
-The workflow runs backend tests, frontend build checks, mobile typecheck, and deploys to the configured server after pushes to `main` when deploy secrets are available.
+The workflow runs backend tests, frontend build checks, mobile typecheck, and deploys to AWS after pushes to `main` when `AWS_DEPLOY_ENABLED=true`. It also has a manual destroy action for shutting the demo stack down.
 
 ## Security
 
@@ -73,4 +73,4 @@ Do not commit:
 - cloud provider credentials
 - private SSH keys
 
-Production requires strong `SECRET_KEY`, strong database password, HTTPS, restricted CORS, and tested backups.
+Production requires strong `SECRET_KEY`, HTTPS, restricted CORS, private database access, budget alerts, and a tested destroy/backup plan.
