@@ -10,6 +10,8 @@ const config = [
       ".next/**",
       "out/**",
       "build/**",
+      "public/workbox-*.js",
+      "public/sw.js",
       "next-env.d.ts",
     ],
   },

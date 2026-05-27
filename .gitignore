@@ -3,3 +3,22 @@ docker/postgres/seed/*.dump
 docker/postgres/seed/*.sql
 docker/postgres/seed/*.sql.gz
 mizan-backend/db_backups/*.dump
+
+# Local-only development/test apps and generated assets
+mizan-frontend-pwa/
+node_modules/
+.next/
+out/
+
+# Terraform state and local plans
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+terraform.tfvars.json
+
+# Local presentation material
+DEMO_*.md
+proposition_pp_mizan.pdf
+proposition_pp_mizan.tex

@@ -42,7 +42,7 @@ class ChatRequest(BaseModel):
 
 
 class AgentTestTriggerRequest(BaseModel):
-    event_type: str = Field(default="JURY_DEMO", min_length=3, max_length=60)
+    event_type: str = Field(default="MANUAL_TEST", min_length=3, max_length=60)
     note: str = Field(default="", max_length=300)
 
 
@@ -99,7 +99,7 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "SEND_AND_CREATE",
             "thought": "Forced high-stress scenario: exam crunch with overload signs.",
             "notification_title": "High stress: exam crunch plan",
-            "notification_body": "Demo scenario: pressure is high. Start a short reset then a protected exam focus block.",
+            "notification_body": "Validation scenario: pressure is high. Start a short reset then a protected exam focus block.",
             "task_title": "Stress reset + 30-min exam sprint",
             "task_description": "Do a 10-minute calming reset, then one 30-minute focused exam sprint with no distractions.",
             "suggested_mode": "EXAMEN",
@@ -110,7 +110,7 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "ESCALATE_WELLBEING",
             "thought": "Forced high-stress scenario: burnout risk and persistent distress.",
             "notification_title": "High stress alert: burnout risk",
-            "notification_body": "Demo scenario: sustained overload detected. Prioritize recovery and reduce load now.",
+            "notification_body": "Validation scenario: sustained overload detected. Prioritize recovery and reduce load now.",
             "task_title": "Burnout prevention protocol",
             "task_description": "Take a 20-minute recovery block, pause non-urgent work, and complete one minimal priority task.",
             "confidence": 1.0,
@@ -120,16 +120,16 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "PROPOSE_MODE_SWITCH",
             "thought": "Forced high-stress scenario: overdue tasks spiral with urgency.",
             "notification_title": "Stabilize workload now",
-            "notification_body": "Demo scenario: switch mode to recover control and clear one high-impact item first.",
+            "notification_body": "Validation scenario: switch mode to recover control and clear one high-impact item first.",
             "suggested_mode": "PROJET",
             "confidence": 1.0,
         }
     if event_type == "FORCE_AFTER_LUNCH_RESET":
         return {
             "action": "SEND_AND_CREATE",
-            "thought": "Forced demo scenario: post-lunch energy dip intervention.",
+            "thought": "Forced validation scenario: post-lunch energy dip intervention.",
             "notification_title": "After-lunch reset",
-            "notification_body": "Demo scenario: do a 10-minute reset, hydrate, then start one short focus sprint.",
+            "notification_body": "Validation scenario: do a 10-minute reset, hydrate, then start one short focus sprint.",
             "task_title": "Post-lunch reset + 25-min focus sprint",
             "task_description": "Take 10 minutes to reset after lunch, then complete one 25-minute focused task.",
             "suggested_mode": "REVISION",
@@ -138,37 +138,37 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
     if event_type == "FORCE_MODE_SWITCH":
         return {
             "action": "PROPOSE_MODE_SWITCH",
-            "thought": "Forced demo scenario: mode switch suggestion.",
+            "thought": "Forced validation scenario: mode switch suggestion.",
             "notification_title": "Suggested mode: EXAMEN",
-            "notification_body": "Demo scenario: switch to EXAMEN mode now for focused preparation.",
+            "notification_body": "Validation scenario: switch to EXAMEN mode now for focused preparation.",
             "suggested_mode": "EXAMEN",
             "confidence": 1.0,
         }
     if event_type == "FORCE_RESOURCE_NUDGE":
         return {
             "action": "SEND_RESOURCE_NUDGE",
-            "thought": "Forced demo scenario: resource auto-delivery.",
+            "thought": "Forced validation scenario: resource auto-delivery.",
             "notification_title": "Targeted support resource",
-            "notification_body": "Demo scenario: sending one targeted wellbeing resource.",
+            "notification_body": "Validation scenario: sending one targeted wellbeing resource.",
             "resource_index": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_ESCALATION":
         return {
             "action": "ESCALATE_WELLBEING",
-            "thought": "Forced demo scenario: persistent low-mood escalation.",
+            "thought": "Forced validation scenario: persistent low-mood escalation.",
             "notification_title": "High-priority wellbeing support",
-            "notification_body": "Demo scenario: escalation alert and urgent recovery task.",
+            "notification_body": "Validation scenario: escalation alert and urgent recovery task.",
             "task_title": "Urgent wellbeing reset + one academic win",
-            "task_description": "Demo task: complete a short wellbeing reset then one focused sprint.",
+            "task_description": "Validation task: complete a short wellbeing reset then one focused sprint.",
             "confidence": 1.0,
         }
     if event_type == "FORCE_CHECKIN_REMINDER":
         return {
             "action": "SEND_NOTIFICATION",
-            "thought": "Forced demo scenario: missing check-in reminder on a busy day.",
+            "thought": "Forced validation scenario: missing check-in reminder on a busy day.",
             "notification_title": "Morning check-in reminder",
-            "notification_body": "Demo scenario: reminder to complete check-in and adapt the day plan early.",
+            "notification_body": "Validation scenario: reminder to complete check-in and adapt the day plan early.",
             "confidence": 1.0,
         }
     return None
@@ -343,7 +343,7 @@ async def api_trigger_agent_test_run(
         idempotency_key=f"manual:{student.id}:{event_type}:{now_ms}:{uuid4()}",
         payload={
             "note": data.note,
-            "source": "jury_demo",
+            "source": "manual_validation",
             "forced": bool(forced_decision),
             "force_decision": forced_decision,
         },

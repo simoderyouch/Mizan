@@ -32,6 +32,7 @@ from app.schemas.voice import (
 from app.services.autonomous_events import build_checkin_event, publish_autonomous_event
 from app.services.checkin_service import has_morning_checkin_today
 from app.services.context_builder import build_agent_context
+from app.services.file_service import validate_audio_bytes
 from app.services.question_service import generate_personalized_questions
 
 settings = get_settings()
@@ -532,6 +533,7 @@ async def start_voice_session(db: AsyncSession, student_id: UUID, period: str) -
 
 async def transcribe_audio(audio_file: UploadFile) -> str:
     audio_bytes = await audio_file.read()
+    validate_audio_bytes(audio_bytes)
     return await speech_to_text(
         audio_bytes,
         file_name=audio_file.filename,
@@ -713,7 +715,6 @@ async def analyze_voice_responses(db: AsyncSession, student_id: UUID, data: Voic
     await db.commit()
 
     context = await build_agent_context(db, student_id)
-    client = Mistral(api_key=settings.MISTRAL_API_KEY)
 
     q_lines = []
     parsed_answers = []
@@ -727,7 +728,19 @@ async def analyze_voice_responses(db: AsyncSession, student_id: UUID, data: Voic
         parsed_answers.append({"question_id": q_id, "value": t["transcription"]})
     transcriptions_text = "\n".join(q_lines)
 
-    prompt = f"""Analyze the following transcribed voice responses from a student for their {period} check-in.
+    if not (settings.MISTRAL_API_KEY or "").strip():
+        combined_text = " ".join(t["transcription"] for t in cleaned_transcriptions).lower()
+        mood_hint = 2 if any(word in combined_text for word in ["bad", "tired", "stress", "sad", "anxious"]) else 3
+        parsed_data = {
+            "mood_score": mood_hint,
+            "sleep_hours": None,
+            "plan_completed": any(word in combined_text for word in ["done", "finished", "completed", "yes"]),
+            "analysis": "Voice check-in saved with local analysis because the AI provider is not configured.",
+            "recommendations": _fallback_recommendations(period, mood_hint, None),
+        }
+    else:
+        client = Mistral(api_key=settings.MISTRAL_API_KEY)
+        prompt = f"""Analyze the following transcribed voice responses from a student for their {period} check-in.
 
 Context:
 - Upcoming Exams: {len(context.get('upcoming_exams', []))}
@@ -748,20 +761,20 @@ Extract the following information and return exactly a JSON object with these ke
 JSON format only. No markdown formatting.
 """
 
-    response = await asyncio.to_thread(
-        client.chat.complete,
-        model=settings.MISTRAL_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-    )
+        response = await asyncio.to_thread(
+            client.chat.complete,
+            model=settings.MISTRAL_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+        )
 
-    try:
-        content = _extract_chat_response_text(response) or "{}"
-        parsed_data = json.loads(content)
-    except JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid AI analysis payload")
-    if not isinstance(parsed_data, dict):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected AI analysis format")
+        try:
+            content = _extract_chat_response_text(response) or "{}"
+            parsed_data = json.loads(content)
+        except JSONDecodeError:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid AI analysis payload")
+        if not isinstance(parsed_data, dict):
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected AI analysis format")
 
     mood_score = _normalize_mood_score(parsed_data.get("mood_score"))
     sleep_hours = _normalize_sleep_hours(parsed_data.get("sleep_hours"))
@@ -866,6 +879,15 @@ JSON format only. No markdown formatting.
 async def chat_with_voice_agent(db: AsyncSession, student_id: UUID, data: VoiceChatRequest) -> VoiceChatResponse:
     from app.services.agent_service import _compute_stress_level, _build_goal_overview
     context = await build_agent_context(db, student_id)
+    if not (settings.MISTRAL_API_KEY or "").strip():
+        return VoiceChatResponse(
+            agent_text=(
+                "Voice AI is running in local fallback mode because the AI provider is not configured. "
+                "Pick one priority, work for 25 minutes, then take a short reset."
+            ),
+            agent_audio_base64="",
+        )
+
     client = Mistral(api_key=settings.MISTRAL_API_KEY)
 
     student = context.get("student", {})

@@ -1,326 +1,218 @@
-# Mizan Jury Deployment (All-in-One Docker Compose on AWS)
+# Mizan AWS Deployment Guide
 
-This guide deploys the full project in one stack:
+This is the recommended production-style deployment for the demo.
 
-- `mizan-backend` (FastAPI)
-- `mizan-frontend` (web)
-- `mizan-frontend-mobile` (mobile web UI)
-- `postgres` (database)
+The deployed stack is split:
 
-It is optimized for **competition/jury demo speed**, not for large-scale production.
+- `mizan-frontend`: Next.js Docker container on ECS Fargate
+- `mizan-backend`: FastAPI Docker container on ECS Fargate
+- `postgres`: private RDS PostgreSQL
+- `alb`: Application Load Balancer routing frontend and API traffic
+- `CloudFront`: HTTPS public entry point in front of the ALB
+- `Secrets Manager`: backend environment and provider secrets
+- `ECR`: frontend and backend Docker image registry
+- `CloudWatch`: frontend and backend logs
 
----
+The local-only PWA folder is not deployed and is ignored by git.
 
-## 1. Files added for this deployment
+## Best Demo Strategy
 
-At repo root:
-- `docker-compose.yml`
-- `.env.compose.example`
+For your plan, use the AWS stack only around the demo:
 
-Per app:
-- `mizan-backend/Dockerfile`
-- `mizan-backend/docker/entrypoint.sh`
-- `mizan-backend/.dockerignore`
-- `mizan-frontend/Dockerfile`
-- `mizan-frontend/.dockerignore`
-- `mizan-frontend-mobile/Dockerfile`
-- `mizan-frontend-mobile/.dockerignore`
+1. Create the Terraform state bucket once.
+2. Add GitHub secrets.
+3. Run the deploy workflow the day before the demo.
+4. Test login, API health, AI/upload features, and frontend navigation.
+5. Run the demo.
+6. Run the destroy workflow immediately after.
 
----
+The Terraform defaults are intentionally demo-friendly: one frontend task, one backend task, small RDS, no NAT Gateway, no multi-AZ database, and easy teardown.
 
-## 2. First-time EC2 configuration (detailed)
+## What You Need To Provide
 
-### 2.1 Launch EC2 instance
+### 1. AWS Account
 
-Use these recommended settings:
+Use an AWS account with billing alerts enabled. If you are using the AWS `$100` Free Tier credit, this stack should be reasonable for a short run, but AWS can still charge you if usage exceeds credits or if credits do not apply to a service.
 
-- **AMI**: Ubuntu Server 22.04 LTS (or 24.04)
-- **Instance type**: `t3.medium` minimum (2 vCPU, 4 GB RAM)
-- **Storage**: 30 GB `gp3`
-- **Auto-assign public IP**: enabled
-- **Key pair**: create/download a `.pem` key
+Create budget alerts before deploying:
 
-### 2.2 Security Group inbound rules
+```text
+$20 alert
+$50 alert
+$90 alert
+```
 
-Configure inbound exactly like this:
+### 2. AWS IAM Credentials
 
-- `22` (SSH) -> source: **your IP only** (recommended)
-- `80` (HTTP) -> source: `0.0.0.0/0` (for SSL challenge and redirect)
-- `443` (HTTPS) -> source: `0.0.0.0/0` (main entry point)
+For GitHub Actions, provide IAM credentials with permission to manage:
 
-Keep app ports and database private:
-- Do **not** open `3000`, `3001`, `8000` or `5432` publicly. They are handled by Nginx internally.
+```text
+ECR
+ECS
+Fargate
+RDS
+EC2 security groups/load balancers
+CloudFront
+Secrets Manager
+CloudWatch Logs
+IAM roles/policies
+Terraform state S3 bucket access
+```
 
-### 2.3 Connect to instance
+For a quick demo, an admin-level temporary IAM user is simpler. For long-term production, use GitHub OIDC and least-privilege IAM.
 
-From your local machine:
+### 3. Terraform State Bucket
+
+Create one S3 bucket for Terraform state:
 
 ```bash
-chmod 400 <your-key>.pem
-ssh -i <your-key>.pem ubuntu@<EC2_PUBLIC_IP>
+aws s3 mb s3://<unique-tf-state-bucket> --region eu-west-3
+aws s3api put-bucket-versioning \
+  --bucket <unique-tf-state-bucket> \
+  --versioning-configuration Status=Enabled
 ```
 
-### 2.4 Install Docker, Compose plugin, and Git
+Keep this bucket after the demo if you may redeploy later. If you delete it, Terraform loses the map of what it created.
 
-Run on EC2:
+### 4. GitHub Secrets
+
+Required for AWS deploy:
+
+```text
+AWS_DEPLOY_ENABLED=true
+AWS_ACCESS_KEY_ID=<access-key>
+AWS_SECRET_ACCESS_KEY=<secret-key>
+AWS_REGION=eu-west-3
+TF_STATE_BUCKET=<unique-tf-state-bucket>
+TF_STATE_KEY=mizan/demo/terraform.tfstate
+```
+
+Recommended backend secret:
+
+```text
+BACKEND_SECRET_KEY=<long-random-secret>
+```
+
+Generate it locally:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg lsb-release
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin git
-sudo usermod -aG docker $USER
-newgrp docker
-docker --version
-docker compose version
+python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(64))
+PY
 ```
 
-### 2.5 Optional but recommended
+Optional feature secrets:
+
+```text
+MISTRAL_API_KEY=<mistral-key>
+CLOUDINARY_CLOUD_NAME=<cloudinary-name>
+CLOUDINARY_API_KEY=<cloudinary-key>
+CLOUDINARY_API_SECRET=<cloudinary-secret>
+SMTP_USER=<smtp-user>
+SMTP_PASSWORD=<smtp-password>
+```
+
+If optional provider secrets are missing, the base app can deploy, but related AI/upload/email features may not work.
+
+## GitHub Actions CI/CD
+
+Workflow:
+
+```text
+.github/workflows/ci-cd.yml
+```
+
+It runs:
+
+- backend tests
+- frontend lint/build
+- mobile typecheck
+- AWS deploy on push to `main`, only when `AWS_DEPLOY_ENABLED=true`
+- manual AWS deploy/destroy through `workflow_dispatch`
+
+Manual deploy:
+
+```text
+GitHub -> Actions -> CI/CD -> Run workflow -> aws_action=deploy
+```
+
+Manual destroy:
+
+```text
+GitHub -> Actions -> CI/CD -> Run workflow -> aws_action=destroy
+```
+
+## What Deploy Does
+
+The deploy job:
+
+1. Creates the frontend and backend ECR repositories if needed.
+2. Builds `mizan-backend/Dockerfile`.
+3. Pushes the backend image to ECR using the commit SHA tag.
+4. Builds a bootstrap `mizan-frontend/Dockerfile` image.
+5. Applies Terraform for ECS, RDS, ALB, CloudFront, secrets, IAM, and logs.
+6. Reads the deployed CloudFront URL from Terraform output.
+7. Rebuilds the frontend image with the deployed API/WebSocket URLs.
+8. Applies Terraform again to switch ECS to the final frontend image.
+9. Invalidates CloudFront.
+10. Calls the backend `/health` endpoint.
+
+## Public URLs
+
+Terraform outputs the URLs:
 
 ```bash
-sudo timedatectl set-timezone UTC
-sudo apt-get install -y htop
+cd infra/aws
+terraform output app_url
+terraform output frontend_url
+terraform output api_url
+terraform output api_health_url
 ```
 
----
+For the first demo version, use the generated CloudFront domain directly. A custom domain can be added later with Route 53 and ACM.
 
-## 3. Clone project and prepare environment
+## Routing
+
+CloudFront sends traffic to the ALB.
+
+The ALB routes:
+
+```text
+/api/v1/*      -> backend ECS service
+/health        -> backend ECS service
+/docs          -> backend ECS service
+/openapi.json  -> backend ECS service
+everything else -> frontend ECS service
+```
+
+## Shutdown After Demo
+
+Preferred:
+
+```text
+GitHub -> Actions -> CI/CD -> Run workflow -> aws_action=destroy
+```
+
+Local:
 
 ```bash
-git clone <YOUR_REPO_URL>
-cd mizan
-cp .env.compose.example .env.compose
+cd infra/aws
+terraform destroy
 ```
 
-Edit `.env.compose`:
+CloudFront deletion can take several minutes. Wait until destroy finishes before assuming billing has stopped.
 
-```bash
-nano .env.compose
-```
+## Go / No-Go Checklist
 
-Minimum values to set:
-- `SECRET_KEY`
-- `MISTRAL_API_KEY`
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
-- `DOMAIN` (e.g., `mizan.your-domain.com`)
-- `EMAIL` (for Certbot SSL alerts)
+Go only if:
 
-If you keep defaults, internal DB works with:
-- `POSTGRES_DB=mizan`
-- `POSTGRES_USER=postgres`
-- `POSTGRES_PASSWORD=postgres`
-
-### 3.1 Initialize Docker DB from your local data (first start)
-
-This stack now supports automatic seed restore for Postgres on first initialization.
-
-How it works:
-- `docker/postgres/init/20-seed-restore.sh` runs only when Postgres volume is empty.
-- If `/seed/${DB_SEED_FILE}` exists, it restores it automatically.
-- Supported formats: `.dump`, `.sql`, `.sql.gz`
-
-Default env values:
-- `DB_AUTO_SEED=true`
-- `DB_SEED_FILE=local.dump`
-
-Place your seed file here before first `docker compose up`:
-
-```bash
-mkdir -p docker/postgres/seed
-cp <your_local_dump_file>.dump docker/postgres/seed/local.dump
-```
-
-If you already have local dumps in this repo:
-
-```bash
-cp mizan-backend/db_backups/source_*.dump docker/postgres/seed/local.dump
-```
-
-Or create a fresh local dump:
-
-```bash
-pg_dump -Fc -h 127.0.0.1 -U postgres -d mizan_local -f docker/postgres/seed/local.dump
-```
-
-Important:
-- Restore runs only on first DB init (empty Docker volume).
-- If DB was already initialized and you want to re-seed, reset volume:
-
-```bash
-docker compose down -v
-docker compose --env-file .env.compose up -d --build
-```
-
-### 3.2 DNS Configuration (For Vercel Portfolio Users)
-
-If your main domain (e.g. `yourdomain.com`) is already pointing to **Vercel**, you can still use **Mizan subdomains** on EC2 without breaking your portfolio.
-
-1. **Find your EC2 Public IP**: In AWS Console -> Copy "Public IPv4 address".
-2. **Login to Namecheap** -> Advanced DNS.
-3. **Add ONLY these A records** (Do NOT change `@` or `www` if Vercel uses them):
-   - **Type**: `A Record` | **Host**: `mizan` | **Value**: `<EC2_PUBLIC_IP>`
-   - **Type**: `A Record` | **Host**: `mizanm` | **Value**: `<EC2_PUBLIC_IP>`
-   - **Type**: `A Record` | **Host**: `api` | **Value**: `<EC2_PUBLIC_IP>`
-4. **Wait**: DNS propagation is usually fast for new subdomains.
-
----
-
-### 4. SSL / HTTPS Setup (Recommended)
-
-To deploy with SSL (HTTPS) using Let's Encrypt:
-
-1. **Verify your domain** is pointing to the EC2 Public IP.
-2. **Update `.env.compose`**:
-   ```env
-   DOMAIN=your-domain.com
-   EMAIL=your-email@example.com
-   NEXT_PUBLIC_API_URL=https://api.your-domain.com
-   NEXT_PUBLIC_WS_URL=wss://api.your-domain.com/ws
-   ```
-3. **Initialize SSL**:
-   Run the automated script once:
-   ```bash
-   ./docker/nginx/init-ssl.sh
-   ```
-   This script will:
-   - Prepare Nginx configurations.
-   - Obtain Let's Encrypt certificates.
-   - Start the Nginx reverse proxy.
-
----
-
-## 5. Important public URL values (for jury access)
-
-If you use the SSL setup (Step 4), your URLs will be:
-
-```env
-NEXT_PUBLIC_API_URL=https://api.your-domain.com
-NEXT_PUBLIC_WS_URL=wss://api.your-domain.com/ws
-```
-
-Otherwise, if you stay on HTTP (not recommended):
-
-```env
-NEXT_PUBLIC_API_URL=http://<EC2_PUBLIC_IP>:8000
-NEXT_PUBLIC_WS_URL=ws://<EC2_PUBLIC_IP>:8000/ws
-```
-
----
-
-## 5. Run the full stack
-
-Build and start:
-
-```bash
-docker compose --env-file .env.compose up -d --build
-```
-
-Check status:
-
-```bash
-docker compose ps
-docker compose logs -f backend
-```
-
-Backend entrypoint waits for Postgres, runs Alembic migrations, then starts API.
-
----
-
-## 6. Jury demo URLs
-
-Using EC2 public IP:
-
-- Frontend web: `https://mizan.<DOMAIN>` (and `https://<DOMAIN>`)
-- Frontend mobile web: `https://mizanm.<DOMAIN>`
-- Backend health: `https://api.<DOMAIN>/health`
-- Backend docs: `https://api.<DOMAIN>/docs`
-
----
-
-## 7. Common operations
-
-Update after new code:
-
-```bash
-git pull
-docker compose --env-file .env.compose up -d --build
-```
-
-Restart:
-
-```bash
-docker compose restart
-```
-
-Stop:
-
-```bash
-docker compose down
-```
-
-Stop and remove DB volume (danger: data loss):
-
-```bash
-docker compose down -v
-```
-
----
-
-## 8. Optional simple GitHub -> AWS auto-deploy (compose)
-
-If you still want a basic pipeline:
-
-1. Keep this same Compose setup on EC2.
-2. Use GitHub Actions to SSH into EC2 and run:
-   - `git pull`
-   - `docker compose --env-file .env.compose up -d --build`
-
-You will need GitHub repository secrets:
-- `EC2_HOST`
-- `EC2_USER`
-- `EC2_SSH_PRIVATE_KEY`
-- `EC2_APP_PATH` (example: `/home/ubuntu/mizan`)
-
----
-
-## 9. Troubleshooting
-
-Frontend cannot reach backend:
-- Verify `NEXT_PUBLIC_API_URL` in `.env.compose`
-- Rebuild frontend containers after changing it:
-  ```bash
-  docker compose --env-file .env.compose up -d --build frontend frontend-mobile
-  ```
-
-Backend crash at startup:
-- Check logs:
-  ```bash
-  docker compose logs -f backend
-  ```
-- Ensure required env values exist (`SECRET_KEY`, provider keys)
-
-Database connection issues:
-- Ensure `db` container is healthy:
-  ```bash
-  docker compose ps
-  docker compose logs -f db
-  ```
-
----
-
-## 10. Recommended demo mode
-
-For jury stability:
-1. Deploy this stack at least once before presentation day
-2. Seed realistic demo data
-3. Keep one terminal with `docker compose logs -f backend` for quick diagnosis
-4. Do not change env vars right before the demo unless necessary
+- GitHub Actions checks pass
+- AWS deploy job completes successfully
+- frontend URL opens
+- API health URL returns success
+- login works
+- detailed health shows database connected
+- Mistral/Cloudinary features are tested if used in the demo
+- budget alerts exist
+- destroy workflow has been tested once before the real demo day

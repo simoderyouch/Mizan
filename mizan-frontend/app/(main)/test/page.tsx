@@ -12,14 +12,14 @@ export default function AgentTestPage() {
   const [runs, setRuns] = useState<AgentTestRun[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [contracts, setContracts] = useState<AgentActionContract[]>([]);
-  const [eventType, setEventType] = useState("JURY_DEMO");
-  const [note, setNote] = useState("manual jury demo trigger");
+  const [eventType, setEventType] = useState("MANUAL_TEST");
+  const [note, setNote] = useState("manual agent validation trigger");
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [processingFollowups, setProcessingFollowups] = useState(false);
   const [error, setError] = useState("");
   const scenarioOptions = [
-    { value: "JURY_DEMO", label: "Context-driven (JURY_DEMO)" },
+    { value: "MANUAL_TEST", label: "Context-driven (MANUAL_TEST)" },
     { value: "FORCE_AFTER_LUNCH_RESET", label: "Force after-lunch reset scenario" },
     { value: "FORCE_HIGH_STRESS_EXAM_CRUNCH", label: "Force high stress: exam crunch" },
     { value: "FORCE_HIGH_STRESS_BURNOUT_RISK", label: "Force high stress: burnout risk" },
@@ -94,18 +94,18 @@ export default function AgentTestPage() {
       await agentApi.triggerTestRun({ event_type: eventType, note });
       await loadData(false);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not trigger a demo run."));
+      setError(getApiErrorMessage(err, "Could not trigger a validation run."));
     } finally {
       setTriggering(false);
     }
   };
 
-  if (loading) return <div className="text-sm text-on-surface-variant">Loading agent demo dashboard...</div>;
+  if (loading) return <div className="text-sm text-on-surface-variant">Loading agent test dashboard...</div>;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Agent Demo / Jury Test</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Agent Test Console</h1>
         <p className="text-sm text-on-surface-variant mt-1">
           Trigger autonomous runs and inspect actions/results in real time.
         </p>
@@ -148,7 +148,7 @@ export default function AgentTestPage() {
             </Button>
           </form>
           <p className="text-xs text-on-surface-variant">
-            Use FORCE scenarios for guaranteed jury-visible actions even when student context is calm.
+            Use FORCE scenarios for deterministic validation actions even when student context is calm.
           </p>
           <div>
             <Button variant="secondary" onClick={() => void processFollowups()} disabled={processingFollowups}>

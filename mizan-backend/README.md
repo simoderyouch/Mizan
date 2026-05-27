@@ -338,12 +338,12 @@ Notification endpoints:
 - `PATCH /api/v1/notifications/{notification_id}/read` -> mark read/unread
 - `WS /api/v1/notifications/ws` -> authenticated realtime stream (query `?token=<jwt>` or `Authorization: Bearer <jwt>`)
 
-Jury/demo visibility endpoints:
+Agent test/support endpoints:
 
 - `GET /api/v1/agent/test/runs` -> recent autonomous runs + decisions for current student
-- `POST /api/v1/agent/test/trigger` -> manual autonomous trigger for demo
+- `POST /api/v1/agent/test/trigger` -> manual autonomous trigger for validation
 - `GET /api/v1/agent/test/summary` -> quick counts and latest run/notification snapshot
-- `POST /api/v1/agent/test/process-followups` -> process due contract follow-ups now (demo helper)
+- `POST /api/v1/agent/test/process-followups` -> process due contract follow-ups now
 - `POST /api/v1/agent/test/trigger` supports forced scenarios via `event_type`:
   - `FORCE_MODE_SWITCH`
   - `FORCE_RESOURCE_NUDGE`
@@ -353,7 +353,7 @@ Jury/demo visibility endpoints:
   - `FORCE_HIGH_STRESS_OVERDUE_SPIRAL`
   - `FORCE_AFTER_LUNCH_RESET`
   - `FORCE_CHECKIN_REMINDER`
-  - Forced scenario runs bypass notification cooldown and task deduplication to guarantee visible demo outcomes.
+  - Forced scenario runs bypass notification cooldown and task deduplication for deterministic validation outcomes.
 
 Action contract endpoints:
 
@@ -366,7 +366,7 @@ Action contract endpoints:
 ## Local development notes
 
 - On startup, default wellbeing resources are seeded when table is empty.
-- CORS is currently open (`allow_origins=["*"]`) in `main.py`.
+- CORS is controlled by `BACKEND_CORS_ORIGINS` and wildcard CORS is rejected in production.
 - Focused backend tests exist for autonomous policy behavior in `tests/test_agent_orchestrator.py`.
 
 ---

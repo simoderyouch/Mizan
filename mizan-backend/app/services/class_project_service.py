@@ -182,7 +182,7 @@ async def import_projects_from_csv(
     file: UploadFile,
     replace_existing: bool = False,
 ) -> int:
-    validate_csv_file(file)
+    await validate_csv_file(file)
     _ensure_admin_scope(current_user, await _get_school_id_for_class(db, class_id))
     rows = await parse_project_csv(file)
 

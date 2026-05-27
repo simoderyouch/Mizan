@@ -136,7 +136,7 @@ export default function NotificationsPage() {
             </div>
             <h3 className="text-lg font-semibold">Toutes les nouvelles ont été lues</h3>
             <p className="text-sm text-on-surface-variant max-w-xs mt-2">
-              Vous n'avez aucune notification pour le moment. Votre assistant Mizan vous alertera ici en cas de besoin.
+              Vous n&apos;avez aucune notification pour le moment. Votre assistant Mizan vous alertera ici en cas de besoin.
             </p>
           </CardContent>
         </Card>
