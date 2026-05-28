@@ -581,6 +581,7 @@ export interface AdminClassHealth {
   projects_coverage_pct: number;
   morning_checkin_today_pct: number;
   low_mood_students_7d: number;
+  avg_mood_7d: number;
   school_name?: string;
 }
 
@@ -599,6 +600,24 @@ export interface AdminDashboardData {
   kpis: AdminKpis;
   classes_health: AdminClassHealth[];
   risk_students: AdminRiskStudent[];
+  risk_summary: AdminRiskSummary;
+  class_risk_summary: AdminClassRiskSummary[];
+}
+
+export interface AdminRiskSummary {
+  low_mood_students_7d: number;
+  students_with_overdue_projects: number;
+  students_with_exam_within_48h: number;
+}
+
+export interface AdminClassRiskSummary {
+  class_id: UUID;
+  class_name: string;
+  filiere_name: string;
+  school_name?: string;
+  low_mood_students_7d: number;
+  students_with_overdue_projects: number;
+  students_with_exam_within_48h: number;
 }
 
 // Voice
@@ -637,6 +656,8 @@ export interface VoiceAnalysis {
   recommendations: string[];
   parsed_answers?: CheckinAnswerPayload[] | null;
   saved_checkin_id: UUID;
+  safety_level?: "none" | "high";
+  safety_action?: "human_support_recommended";
 }
 
 export interface VoiceTranscribeResponse {
@@ -698,6 +719,8 @@ export interface VoiceChatRequest {
 export interface VoiceChatResponse {
   agent_text: string;
   agent_audio_base64: string;
+  safety_level?: "none" | "high";
+  safety_action?: "human_support_recommended";
 }
 
 
@@ -713,6 +736,8 @@ export interface AgentPlanResponse {
 
 export interface AgentChatResponse {
   response: string;
+  safety_level?: "none" | "high";
+  safety_action?: "human_support_recommended";
 }
 
 export interface AgentTestDecision {

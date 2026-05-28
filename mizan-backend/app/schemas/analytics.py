@@ -3,7 +3,7 @@
 from datetime import date
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.mode import ModeSessionResponse
 from app.schemas.student import ExamResponse, ScheduleResponse, StudentResponse
@@ -81,6 +81,22 @@ class AdminRiskStudent(BaseModel):
     school_name: Optional[str] = None
 
 
+class AdminRiskSummary(BaseModel):
+    low_mood_students_7d: int = 0
+    students_with_overdue_projects: int = 0
+    students_with_exam_within_48h: int = 0
+
+
+class AdminClassRiskSummary(BaseModel):
+    class_id: str
+    class_name: str
+    filiere_name: str
+    school_name: Optional[str] = None
+    low_mood_students_7d: int = 0
+    students_with_overdue_projects: int = 0
+    students_with_exam_within_48h: int = 0
+
+
 class PlatformTrendPoint(BaseModel):
     date: date
     checkin_count: int
@@ -100,6 +116,8 @@ class InstitutionalStat(BaseModel):
 class AdminDashboardResponse(BaseModel):
     kpis: AdminKpi
     classes_health: List[AdminClassHealth]
-    risk_students: List[AdminRiskStudent] = []
-    platform_trends: List[PlatformTrendPoint] = []
-    institutional_stats: List[InstitutionalStat] = []
+    risk_students: List[AdminRiskStudent] = Field(default_factory=list)
+    risk_summary: AdminRiskSummary = Field(default_factory=AdminRiskSummary)
+    class_risk_summary: List[AdminClassRiskSummary] = Field(default_factory=list)
+    platform_trends: List[PlatformTrendPoint] = Field(default_factory=list)
+    institutional_stats: List[InstitutionalStat] = Field(default_factory=list)

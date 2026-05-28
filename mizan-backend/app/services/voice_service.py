@@ -34,6 +34,12 @@ from app.services.checkin_service import has_morning_checkin_today
 from app.services.context_builder import build_agent_context
 from app.services.file_service import validate_audio_bytes
 from app.services.question_service import generate_personalized_questions
+from app.services.safety_service import (
+    SAFE_SUPPORT_RESPONSE,
+    SAFETY_LEVEL_HIGH,
+    assess_many_texts,
+    assess_text_safety,
+)
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -727,8 +733,23 @@ async def analyze_voice_responses(db: AsyncSession, student_id: UUID, data: Voic
         q_lines.append(f"{q_id} | target={target} | question={q_text} | answer={t['transcription']}")
         parsed_answers.append({"question_id": q_id, "value": t["transcription"]})
     transcriptions_text = "\n".join(q_lines)
+    safety_assessment = assess_many_texts([item["transcription"] for item in cleaned_transcriptions])
 
-    if not (settings.MISTRAL_API_KEY or "").strip():
+    if safety_assessment.is_high_risk:
+        parsed_data = {
+            "mood_score": 1,
+            "sleep_hours": None,
+            "plan_completed": False,
+            "analysis": SAFE_SUPPORT_RESPONSE,
+            "recommendations": [
+                "Contact a trusted person, school counselor, teacher, family member, or close friend now.",
+                "If you may hurt yourself or you are in immediate danger, contact local emergency services immediately.",
+                "Pause academic tasks until you are with someone who can support you safely.",
+            ],
+            "safety_level": SAFETY_LEVEL_HIGH,
+            "safety_action": safety_assessment.action,
+        }
+    elif not (settings.MISTRAL_API_KEY or "").strip():
         combined_text = " ".join(t["transcription"] for t in cleaned_transcriptions).lower()
         mood_hint = 2 if any(word in combined_text for word in ["bad", "tired", "stress", "sad", "anxious"]) else 3
         parsed_data = {
@@ -861,10 +882,11 @@ JSON format only. No markdown formatting.
     session.ended_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(checkin)
-    await publish_autonomous_event(
-        db,
-        build_checkin_event(period, student_id=student_id, checkin_date=checkin.date),
-    )
+    if not safety_assessment.is_high_risk:
+        await publish_autonomous_event(
+            db,
+            build_checkin_event(period, student_id=student_id, checkin_date=checkin.date),
+        )
 
     return VoiceAnalysisResponse(
         analysis=analysis_text,
@@ -872,13 +894,24 @@ JSON format only. No markdown formatting.
         sleep_hours=sleep_hours,
         recommendations=recommendations,
         parsed_answers=parsed_answers,
-        saved_checkin_id=checkin.id
+        saved_checkin_id=checkin.id,
+        safety_level=parsed_data.get("safety_level", "none"),
+        safety_action=parsed_data.get("safety_action"),
     )
 
 
 async def chat_with_voice_agent(db: AsyncSession, student_id: UUID, data: VoiceChatRequest) -> VoiceChatResponse:
     from app.services.agent_service import _compute_stress_level, _build_goal_overview
     context = await build_agent_context(db, student_id)
+    safety_assessment = assess_text_safety(data.user_text)
+    if safety_assessment.is_high_risk:
+        return VoiceChatResponse(
+            agent_text=SAFE_SUPPORT_RESPONSE,
+            agent_audio_base64="",
+            safety_level=SAFETY_LEVEL_HIGH,
+            safety_action=safety_assessment.action,
+        )
+
     if not (settings.MISTRAL_API_KEY or "").strip():
         return VoiceChatResponse(
             agent_text=(
@@ -886,6 +919,7 @@ async def chat_with_voice_agent(db: AsyncSession, student_id: UUID, data: VoiceC
                 "Pick one priority, work for 25 minutes, then take a short reset."
             ),
             agent_audio_base64="",
+            safety_level="none",
         )
 
     client = Mistral(api_key=settings.MISTRAL_API_KEY)
@@ -969,4 +1003,4 @@ Instructions:
     audio_bytes = await text_to_speech(agent_text)
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8") if audio_bytes else ""
     
-    return VoiceChatResponse(agent_text=agent_text, agent_audio_base64=audio_base64)
+    return VoiceChatResponse(agent_text=agent_text, agent_audio_base64=audio_base64, safety_level="none")

@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     MAX_IMAGE_UPLOAD_BYTES: int = 5 * 1024 * 1024
     MAX_AUDIO_UPLOAD_BYTES: int = 25 * 1024 * 1024
     MAX_CSV_UPLOAD_BYTES: int = 5 * 1024 * 1024
+    DAILY_WELLBEING_NOTIFICATION_CAP: int = 3
     
     MISTRAL_API_KEY: str
     MISTRAL_MODEL: str = "mistral-large-latest"

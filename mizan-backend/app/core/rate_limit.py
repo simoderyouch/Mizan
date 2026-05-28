@@ -4,6 +4,10 @@ from collections import defaultdict, deque
 from fastapi import HTTPException, Request, status
 
 from app.core.config import get_settings
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 settings = get_settings()
 

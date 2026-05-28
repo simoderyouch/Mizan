@@ -1,6 +1,7 @@
 # app/api/v1/routes/voice.py
-from fastapi import APIRouter, Depends, File, UploadFile, WebSocket, status
+from fastapi import APIRouter, Depends, File, UploadFile, WebSocket, status, Request
 from jose import JWTError
+from app.core.rate_limit import limiter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,7 +64,9 @@ async def _authenticate_websocket_user(websocket: WebSocket) -> User | None:
 
 
 @router.post("/start", response_model=VoiceSessionResponse)
+@limiter.limit("5/minute")
 async def api_start_voice_session(
+    request: Request,
     data: VoiceSessionStart,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -93,17 +96,20 @@ async def api_submit_voice_session(
 
 
 @router.post("/chat", response_model=VoiceChatResponse)
+@limiter.limit("5/minute")
 async def api_voice_chat(
+    request: Request,
     data: VoiceChatRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     student = await get_student_by_user_id(db, current_user.id)
     response = await chat_with_voice_agent(db, student.id, data)
-    await publish_autonomous_event(
-        db,
-        build_chat_event("VOICE", student_id=student.id, message=data.user_text),
-    )
+    if response.safety_level != "high":
+        await publish_autonomous_event(
+            db,
+            build_chat_event("VOICE", student_id=student.id, message=data.user_text),
+        )
     return response
 
 

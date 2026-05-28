@@ -124,10 +124,10 @@ export default function AdminDashboardPage() {
     }));
   }, [dashboard]);
 
-  const filteredRiskStudents = useMemo(() => {
-    if (!dashboard?.risk_students) return [];
-    if (!selectedClassFilter) return dashboard.risk_students;
-    return dashboard.risk_students.filter((s) => s.class_name === selectedClassFilter);
+  const filteredClassRisk = useMemo(() => {
+    if (!dashboard?.class_risk_summary) return [];
+    if (!selectedClassFilter) return dashboard.class_risk_summary;
+    return dashboard.class_risk_summary.filter((item) => item.class_name === selectedClassFilter);
   }, [dashboard, selectedClassFilter]);
 
   const handleBarClick = (data: ClassBarClickData) => {
@@ -323,38 +323,36 @@ export default function AdminDashboardPage() {
                    <CardTitle className="text-xl font-bold">Risk signals</CardTitle>
                    <p className="text-[10px] uppercase font-bold tracking-wider text-on-surface-variant/70">Performance alerts</p>
                 </div>
-                <Badge variant="secondary" className="border-none text-primary bg-primary/5">{filteredRiskStudents.length} Students</Badge>
+                <Badge variant="secondary" className="border-none text-primary bg-primary/5">{filteredClassRisk.length} Classes</Badge>
               </CardHeader>
               <CardContent className="flex-1">
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {filteredRiskStudents.length ? (
-                  filteredRiskStudents.slice(0, 10).map((student) => (
-                    <div key={student.student_id} className="group rounded-2xl bg-surface-container-low p-4 transition-all hover:bg-surface-container-high">
+                {filteredClassRisk.length ? (
+                  filteredClassRisk.slice(0, 10).map((item) => (
+                    <div key={item.class_id} className="group rounded-2xl bg-surface-container-low p-4 transition-all hover:bg-surface-container-high">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-sm font-bold text-on-surface">{student.full_name}</p>
+                          <p className="text-sm font-bold text-on-surface">{item.class_name}</p>
                           <p className="text-[10px] font-medium uppercase tracking-wider text-on-surface-variant">
-                            {student.class_name} · {student.filiere_name}
+                            {item.filiere_name}
                           </p>
                         </div>
-                        <Badge variant={student.avg_mood_7d <= 2.5 ? "destructive" : "warning"} className="rounded-lg">
-                          {student.avg_mood_7d.toFixed(1)}
+                        <Badge variant={item.low_mood_students_7d > 0 ? "destructive" : "warning"} className="rounded-lg">
+                          {item.low_mood_students_7d} low mood
                         </Badge>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-highest px-2 py-0.5 text-[10px] font-semibold text-on-surface-variant">
-                          {student.overdue_projects} Overdue
+                          {item.students_with_overdue_projects} overdue projects
                         </span>
-                        {student.has_exam_within_48h ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                             Exam &lt; 48h
-                          </span>
-                        ) : null}
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          {item.students_with_exam_within_48h} exams &lt; 48h
+                        </span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <EmptyState title="No risk signals" message={selectedClassFilter ? `No alerts for class ${selectedClassFilter}.` : "Perfect stability across all metrics."} />
+                  <EmptyState title="No aggregate risk signals" message={selectedClassFilter ? `No aggregate alerts for class ${selectedClassFilter}.` : "No class-level risk signals in the current window."} />
                 )}
                 </div>
               </CardContent>
@@ -365,49 +363,62 @@ export default function AdminDashboardPage() {
             <Card className="overflow-hidden border-none bg-surface-container-lowest shadow-sanctuary">
               <CardHeader className="flex flex-row items-center justify-between pb-6">
                 <div>
-                  <CardTitle className="text-xl font-bold">Prioritized risk monitoring</CardTitle>
+                  <CardTitle className="text-xl font-bold">Aggregate risk monitoring</CardTitle>
                   {selectedClassFilter && <p className="text-xs text-on-surface-variant font-medium mt-1">Filtering by: <span className="text-primary font-bold">{selectedClassFilter}</span></p>}
                 </div>
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-inset ring-amber-700/10">
                   <AlertTriangle className="h-3 w-3" />
-                  Live alerts
+                  Private by design
                 </div>
               </CardHeader>
               <CardContent>
-                {filteredRiskStudents.length ? (
+                <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl bg-surface-container-low p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Low mood 7d</p>
+                    <p className="mt-2 text-3xl font-bold text-on-surface">{dashboard?.risk_summary?.low_mood_students_7d ?? 0}</p>
+                  </div>
+                  <div className="rounded-2xl bg-surface-container-low p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Overdue projects</p>
+                    <p className="mt-2 text-3xl font-bold text-on-surface">{dashboard?.risk_summary?.students_with_overdue_projects ?? 0}</p>
+                  </div>
+                  <div className="rounded-2xl bg-surface-container-low p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Exam ≤ 48h</p>
+                    <p className="mt-2 text-3xl font-bold text-on-surface">{dashboard?.risk_summary?.students_with_exam_within_48h ?? 0}</p>
+                  </div>
+                </div>
+                {filteredClassRisk.length ? (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="border-surface-container-high hover:bg-transparent">
-                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Student</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Class</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Filiere</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Avg mood (7d)</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-center">Overdue</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-center">Low mood 7d</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-center">Overdue projects</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-right">Exam ≤ 48h</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredRiskStudents.map((student) => (
-                          <TableRow key={student.student_id} className="border-surface-container-low transition-colors hover:bg-surface-container-low/50">
-                            <TableCell className="py-4 font-bold text-on-surface">{student.full_name}</TableCell>
-                            <TableCell className="py-4 text-on-surface-variant font-medium">{student.class_name}</TableCell>
-                            <TableCell className="py-4 text-on-surface-variant font-medium">{student.filiere_name}</TableCell>
-                            <TableCell className="py-4">
-                               <Badge variant={student.avg_mood_7d <= 2.5 ? "destructive" : "warning"} className="rounded-lg shadow-sm">
-                                  {student.avg_mood_7d.toFixed(2)}
-                               </Badge>
+                        {filteredClassRisk.map((item) => (
+                          <TableRow key={item.class_id} className="border-surface-container-low transition-colors hover:bg-surface-container-low/50">
+                            <TableCell className="py-4 font-bold text-on-surface">{item.class_name}</TableCell>
+                            <TableCell className="py-4 text-on-surface-variant font-medium">{item.filiere_name}</TableCell>
+                            <TableCell className="py-4 text-center">
+                              <Badge variant={item.low_mood_students_7d > 0 ? "destructive" : "secondary"} className="rounded-lg shadow-sm">
+                                {item.low_mood_students_7d}
+                              </Badge>
                             </TableCell>
                             <TableCell className="py-4 text-center">
-                               <span className={cn("text-sm font-bold", student.overdue_projects > 2 ? "text-red-600" : "text-on-surface-variant")}>
-                                 {student.overdue_projects}
-                               </span>
+                              <span className={cn("text-sm font-bold", item.students_with_overdue_projects > 2 ? "text-red-600" : "text-on-surface-variant")}>
+                                {item.students_with_overdue_projects}
+                              </span>
                             </TableCell>
                             <TableCell className="py-4 text-right">
-                               {student.has_exam_within_48h ? 
-                                 <Badge className="bg-amber-100 text-amber-700 border-none shadow-none">Urgent</Badge> : 
-                                 <span className="text-on-surface-variant/40">—</span>
-                               }
+                              {item.students_with_exam_within_48h > 0 ? (
+                                <Badge className="bg-amber-100 text-amber-700 border-none shadow-none">{item.students_with_exam_within_48h}</Badge>
+                              ) : (
+                                <span className="text-on-surface-variant/40">0</span>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -415,7 +426,7 @@ export default function AdminDashboardPage() {
                     </Table>
                   </div>
                 ) : (
-                  <EmptyState title="No records found" message="No students match the current alert thresholds." />
+                  <EmptyState title="No aggregate risk records" message="No class has active aggregate alerts in the current window." />
                 )}
               </CardContent>
             </Card>

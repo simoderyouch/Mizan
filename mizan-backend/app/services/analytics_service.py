@@ -12,12 +12,13 @@ from app.models.goal import Goal, GoalProgress
 from app.models.institution import Class, Filiere, Promotion, School
 from app.models.mode_session import ModeSession
 from app.models.student import Exam, Project, Schedule, Student
-from app.models.user import Role, User
+from app.models.user import User
 from app.schemas.analytics import (
     AdminClassHealth,
+    AdminClassRiskSummary,
     AdminDashboardResponse,
     AdminKpi,
-    AdminRiskStudent,
+    AdminRiskSummary,
     InstitutionalStat,
     ModeDistribution,
     MoodGraphPoint,
@@ -25,6 +26,7 @@ from app.schemas.analytics import (
     StudentDashboard,
     WeeklyReport,
 )
+from app.core.permissions import admin_scoped_school_id
 from app.services.checkin_service import (
     has_evening_checkin_today,
     has_morning_checkin_today,
@@ -216,7 +218,7 @@ async def get_admin_dashboard(db: AsyncSession, current_user: User) -> AdminDash
     today = date.today()
     week_ago = today - timedelta(days=7)
     in_48h = today + timedelta(days=2)
-    scoped_school_id = current_user.school_id if current_user.role == Role.ADMIN and current_user.school_id else None
+    scoped_school_id = admin_scoped_school_id(current_user)
 
     school_stmt = select(func.count()).select_from(School)
     filiere_stmt = select(func.count()).select_from(Filiere)
@@ -402,7 +404,8 @@ async def get_admin_dashboard(db: AsyncSession, current_user: User) -> AdminDash
             )
         )
 
-    risk_students: list[AdminRiskStudent] = []
+    risk_summary = AdminRiskSummary()
+    class_risk_summary: list[AdminClassRiskSummary] = []
     if scoped_student_ids_list:
         student_rows = (
             await db.execute(
@@ -450,33 +453,53 @@ async def get_admin_dashboard(db: AsyncSession, current_user: User) -> AdminDash
         ).scalars().all()
         has_exam_soon_set = set(exams_soon_rows)
 
+        class_risk_map: dict[str, dict] = {}
         for student_obj, class_obj, filiere_obj, school_obj in student_rows:
             avg_mood_7d = avg_mood_map.get(student_obj.id, 0.0)
             overdue_projects = overdue_projects_map.get(student_obj.id, 0)
             has_exam_within_48h = student_obj.id in has_exam_soon_set
             has_low_mood_signal = avg_mood_7d > 0 and avg_mood_7d <= 2.5
 
-            if has_low_mood_signal or overdue_projects > 0 or has_exam_within_48h:
-                full_name = f"{student_obj.first_name} {student_obj.last_name}".strip()
-                risk_students.append(
-                    AdminRiskStudent(
-                        student_id=str(student_obj.id),
-                        full_name=full_name or "Student",
-                        class_name=class_obj.name,
-                        filiere_name=filiere_obj.name,
-                        avg_mood_7d=avg_mood_7d,
-                        overdue_projects=overdue_projects,
-                        has_exam_within_48h=has_exam_within_48h,
-                        school_name=school_obj.name,
-                    )
-                )
+            if has_low_mood_signal:
+                risk_summary.low_mood_students_7d += 1
+            if overdue_projects > 0:
+                risk_summary.students_with_overdue_projects += 1
+            if has_exam_within_48h:
+                risk_summary.students_with_exam_within_48h += 1
 
-        risk_students.sort(
-            key=lambda s: (
-                0 if s.avg_mood_7d > 0 else 1,
-                s.avg_mood_7d if s.avg_mood_7d > 0 else 99.0,
-                -s.overdue_projects,
-                0 if s.has_exam_within_48h else 1,
+            class_key = str(class_obj.id)
+            if class_key not in class_risk_map:
+                class_risk_map[class_key] = {
+                    "class_id": class_key,
+                    "class_name": class_obj.name,
+                    "filiere_name": filiere_obj.name,
+                    "school_name": school_obj.name,
+                    "low_mood_students_7d": 0,
+                    "students_with_overdue_projects": 0,
+                    "students_with_exam_within_48h": 0,
+                }
+            if has_low_mood_signal:
+                class_risk_map[class_key]["low_mood_students_7d"] += 1
+            if overdue_projects > 0:
+                class_risk_map[class_key]["students_with_overdue_projects"] += 1
+            if has_exam_within_48h:
+                class_risk_map[class_key]["students_with_exam_within_48h"] += 1
+
+        class_risk_summary = [
+            AdminClassRiskSummary(**item)
+            for item in class_risk_map.values()
+            if (
+                item["low_mood_students_7d"] > 0
+                or item["students_with_overdue_projects"] > 0
+                or item["students_with_exam_within_48h"] > 0
+            )
+        ]
+        class_risk_summary.sort(
+            key=lambda item: (
+                -item.low_mood_students_7d,
+                -item.students_with_overdue_projects,
+                -item.students_with_exam_within_48h,
+                item.class_name,
             )
         )
 
@@ -547,7 +570,9 @@ async def get_admin_dashboard(db: AsyncSession, current_user: User) -> AdminDash
     return {
         "kpis": kpis,
         "classes_health": class_health,
-        "risk_students": risk_students,
+        "risk_students": [],
+        "risk_summary": risk_summary,
+        "class_risk_summary": class_risk_summary,
         "platform_trends": platform_trends,
         "institutional_stats": institutional_stats
     }

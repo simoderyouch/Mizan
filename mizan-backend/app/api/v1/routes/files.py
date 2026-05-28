@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
+from app.core.permissions import ensure_admin_school_scope
 from app.models.user import Role, User
 from app.models.student import Student
 from app.models.institution import Class, Promotion, Filiere
@@ -39,18 +40,15 @@ async def api_upload_student_photo(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Student not found"
         )
-    if current_user.school_id:
-        school_result = await db.execute(
-            select(Filiere.school_id)
-            .select_from(Student)
-            .join(Class, Student.class_id == Class.id)
-            .join(Promotion, Class.promotion_id == Promotion.id)
-            .join(Filiere, Promotion.filiere_id == Filiere.id)
-            .where(Student.id == student_id)
-        )
-        student_school_id = school_result.scalar()
-        if student_school_id != current_user.school_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    school_result = await db.execute(
+        select(Filiere.school_id)
+        .select_from(Student)
+        .join(Class, Student.class_id == Class.id)
+        .join(Promotion, Class.promotion_id == Promotion.id)
+        .join(Filiere, Promotion.filiere_id == Filiere.id)
+        .where(Student.id == student_id)
+    )
+    ensure_admin_school_scope(current_user, school_result.scalar())
 
     secure_url = await upload_photo_to_cloudinary(file, student.cne)
     
@@ -75,18 +73,15 @@ async def api_delete_student_photo(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Student not found"
         )
-    if current_user.school_id:
-        school_result = await db.execute(
-            select(Filiere.school_id)
-            .select_from(Student)
-            .join(Class, Student.class_id == Class.id)
-            .join(Promotion, Class.promotion_id == Promotion.id)
-            .join(Filiere, Promotion.filiere_id == Filiere.id)
-            .where(Student.id == student_id)
-        )
-        student_school_id = school_result.scalar()
-        if student_school_id != current_user.school_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    school_result = await db.execute(
+        select(Filiere.school_id)
+        .select_from(Student)
+        .join(Class, Student.class_id == Class.id)
+        .join(Promotion, Class.promotion_id == Promotion.id)
+        .join(Filiere, Promotion.filiere_id == Filiere.id)
+        .where(Student.id == student_id)
+    )
+    ensure_admin_school_scope(current_user, school_result.scalar())
 
     if student.photo_url:
         await delete_photo_from_cloudinary(student.cne)

@@ -1,7 +1,9 @@
 import type {
   AdminClassHealth,
   AdminDashboardData,
+  AdminClassRiskSummary,
   AdminKpis,
+  AdminRiskSummary,
   AdminRiskStudent,
   Class,
   CurrentUser,
@@ -48,6 +50,8 @@ export interface AdminDashboardResponse {
   platform_trends: PlatformTrendPoint[];
   institutional_stats: InstitutionalStat[];
   risk_students: AdminRiskStudent[];
+  risk_summary: AdminRiskSummary;
+  class_risk_summary: AdminClassRiskSummary[];
 }
 
 export type AdminDashboardResponseCompat = AdminDashboardData;

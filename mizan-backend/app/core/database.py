@@ -10,7 +10,7 @@ settings = get_settings()
 
 database_url = settings.resolved_database_url
 engine_kwargs: dict = {
-    "echo": (settings.APP_ENV == "development"),
+    "echo": False,
     "future": True,
     "pool_pre_ping": settings.DB_POOL_PRE_PING,
 }

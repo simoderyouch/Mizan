@@ -1,9 +1,14 @@
-# app/services/agent_service.py
-import asyncio
+import json
+from loguru import logger
 
 from mistralai.client import Mistral
 
 from app.core.config import get_settings
+from app.services.safety_service import (
+    SAFE_SUPPORT_RESPONSE,
+    SAFETY_LEVEL_HIGH,
+    assess_text_safety,
+)
 
 settings = get_settings()
 
@@ -75,6 +80,20 @@ def _extract_chat_response_text(response) -> str:
     return _extract_message_text(getattr(message, "content", ""))
 
 async def generate_advanced_ritual_report(context: dict, ritual_type: str, data: dict, mode: str) -> dict:
+    safety_assessment = assess_text_safety(data.get("input_text", ""))
+    if safety_assessment.is_high_risk:
+        return {
+            "executive_summary": SAFE_SUPPORT_RESPONSE,
+            "detailed_action_plan": [
+                "Contact a trusted person, school counselor, teacher, family member, or close friend now.",
+                "If you may hurt yourself or you are in immediate danger, contact local emergency services immediately.",
+                "Pause academic tasks until you are with someone who can support you safely.",
+            ],
+            "detected_risks": ["serious_distress_signal"],
+            "safety_level": SAFETY_LEVEL_HIGH,
+            "safety_action": safety_assessment.action,
+        }
+
     if not _mistral_configured():
         mood = data.get("mood_score", "Unknown")
         sleep = data.get("sleep_hours")
@@ -136,26 +155,32 @@ You must output ONLY valid JSON using the following schema exactly:
 }}
 """
 
-    response = await asyncio.to_thread(
-        client.chat.complete,
-        model=settings.MISTRAL_MODEL,
-        response_format={"type": "json_object"},
-        messages=[{"role": "user", "content": prompt}],
-    )
-    
     try:
+        response = await client.chat.complete_async(
+            model=settings.MISTRAL_MODEL,
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content": prompt}],
+        )
         raw_json = _extract_chat_response_text(response) or "{}"
         return json.loads(raw_json)
     except Exception as e:
-        # Fallback empty json if parsing fails
+        logger.error(f"Mistral API failed during ritual report: {e}")
         return {
-            "executive_summary": "Oops, an error occurred while generating your report. Take care of yourself.",
-            "detailed_action_plan": ["Take a short break and try again later."],
+            "executive_summary": f"Your check-in is saved, but AI analysis is temporarily unavailable. Take care of yourself.",
+            "detailed_action_plan": ["Take a short recovery break.", "Try your check-in again later if needed."],
             "detected_risks": []
         }
 
 
-async def chat_with_agent(context: dict, student_message: str) -> str:
+async def chat_with_agent(context: dict, student_message: str) -> dict:
+    safety_assessment = assess_text_safety(student_message)
+    if safety_assessment.is_high_risk:
+        return {
+            "response": SAFE_SUPPORT_RESPONSE,
+            "safety_level": SAFETY_LEVEL_HIGH,
+            "safety_action": safety_assessment.action,
+        }
+
     if not _mistral_configured():
         student = context.get("student", {})
         name = student.get("name", "there")
@@ -164,11 +189,14 @@ async def chat_with_agent(context: dict, student_message: str) -> str:
         if tasks:
             first_task = tasks[0].get("title", "your first task")
             task_hint = f" A good next step is to protect 25 minutes for: {first_task}."
-        return (
-            f"Hi {name}. I can still help with a local response while the AI provider is not configured."
-            " Keep the next step small: pick one priority, time-box it, then take a short pause."
-            f"{task_hint}"
-        )
+        return {
+            "response": (
+                f"Hi {name}. I can still help with a local response while the AI provider is not configured."
+                " Keep the next step small: pick one priority, time-box it, then take a short pause."
+                f"{task_hint}"
+            ),
+            "safety_level": "none",
+        }
 
     client = Mistral(api_key=settings.MISTRAL_API_KEY)
 
@@ -266,12 +294,21 @@ Instructions:
 - If the user asks for counts (e.g., how many exams), use exact numbers from context and never guess.
 """
 
-    response = await asyncio.to_thread(
-        client.chat.complete,
-        model=settings.MISTRAL_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return _extract_chat_response_text(response)
+    try:
+        response = await client.chat.complete_async(
+            model=settings.MISTRAL_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return {
+            "response": _extract_chat_response_text(response),
+            "safety_level": "none",
+        }
+    except Exception as e:
+        logger.error(f"Mistral API failed during chat: {e}")
+        return {
+            "response": "I'm currently experiencing high traffic and couldn't process your message. Please try again in a moment.",
+            "safety_level": "none",
+        }
 
 
 async def generate_daily_plan(context: dict, sleep_hours: float, mood_score: int) -> str:
@@ -299,9 +336,12 @@ Context for {name}:
 
 Create a well-structured, motivational daily plan for the student. Provide exactly three concise bullet points in English."""
 
-    response = await asyncio.to_thread(
-        client.chat.complete,
-        model=settings.MISTRAL_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return _extract_chat_response_text(response)
+    try:
+        response = await client.chat.complete_async(
+            model=settings.MISTRAL_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return _extract_chat_response_text(response)
+    except Exception as e:
+        logger.error(f"Mistral API failed during daily plan: {e}")
+        return "1. Start with a priority task.\n2. Take regular breaks.\n3. End the day by checking what should move to tomorrow."

@@ -267,10 +267,11 @@ async def create_morning_checkin(db: AsyncSession, student_id: UUID, data: Morni
         db.add(checkin)
     await db.commit()
     await db.refresh(checkin)
-    await publish_autonomous_event(
-        db,
-        build_checkin_event("MORNING", student_id=student_id, checkin_date=checkin.date),
-    )
+    if report.get("safety_level") != "high":
+        await publish_autonomous_event(
+            db,
+            build_checkin_event("MORNING", student_id=student_id, checkin_date=checkin.date),
+        )
     return checkin
 
 
@@ -335,10 +336,11 @@ async def create_evening_checkin(db: AsyncSession, student_id: UUID, data: Eveni
         db.add(checkin)
     await db.commit()
     await db.refresh(checkin)
-    await publish_autonomous_event(
-        db,
-        build_checkin_event("EVENING", student_id=student_id, checkin_date=checkin.date),
-    )
+    if report.get("safety_level") != "high":
+        await publish_autonomous_event(
+            db,
+            build_checkin_event("EVENING", student_id=student_id, checkin_date=checkin.date),
+        )
     return checkin
 
 
