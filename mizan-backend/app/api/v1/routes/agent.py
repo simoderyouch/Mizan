@@ -2,8 +2,9 @@ import time
 from uuid import uuid4
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, Field
+from app.core.rate_limit import limiter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -232,7 +233,9 @@ async def api_get_context(
 
 
 @router.post("/plan")
+@limiter.limit("5/minute")
 async def api_generate_plan(
+    request: Request,
     data: PlanRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -244,19 +247,22 @@ async def api_generate_plan(
 
 
 @router.post("/chat")
+@limiter.limit("5/minute")
 async def api_chat_agent(
+    request: Request,
     data: ChatRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     student = await get_student_by_user_id(db, current_user.id)
     context = await build_agent_context(db, student.id)
-    response = await chat_with_agent(context, data.message)
-    await publish_autonomous_event(
-        db,
-        build_chat_event("TEXT", student_id=student.id, message=data.message),
-    )
-    return {"response": response}
+    response_payload = await chat_with_agent(context, data.message)
+    if response_payload.get("safety_level") != "high":
+        await publish_autonomous_event(
+            db,
+            build_chat_event("TEXT", student_id=student.id, message=data.message),
+        )
+    return response_payload
 
 
 @router.get("/contracts", response_model=list[AgentContractResponse])

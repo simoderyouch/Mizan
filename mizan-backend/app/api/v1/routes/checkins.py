@@ -2,8 +2,9 @@
 # app/api/v1/routes/checkins.py
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.rate_limit import limiter
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -49,7 +50,9 @@ async def api_get_personalized_questions(
 
 
 @router.post("/morning", response_model=MorningCheckinResponse)
+@limiter.limit("5/minute")
 async def api_create_morning_checkin(
+    request: Request,
     data: MorningCheckinCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -59,7 +62,9 @@ async def api_create_morning_checkin(
 
 
 @router.post("/evening", response_model=EveningCheckinResponse)
+@limiter.limit("5/minute")
 async def api_create_evening_checkin(
+    request: Request,
     data: EveningCheckinCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

@@ -46,6 +46,8 @@ class VoiceAnalysisResponse(BaseModel):
     recommendations: List[str]
     parsed_answers: Optional[List[dict]] = None
     saved_checkin_id: UUID
+    safety_level: Optional[Literal["none", "high"]] = None
+    safety_action: Optional[Literal["human_support_recommended"]] = None
 
 
 class VoiceChatMessage(BaseModel):
@@ -61,3 +63,5 @@ class VoiceChatRequest(BaseModel):
 class VoiceChatResponse(BaseModel):
     agent_text: str
     agent_audio_base64: str
+    safety_level: Optional[Literal["none", "high"]] = None
+    safety_action: Optional[Literal["human_support_recommended"]] = None

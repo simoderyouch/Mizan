@@ -14,6 +14,7 @@ from app.models.mode_session import ModeSession
 from app.models.student import Exam, Project, Schedule, Student
 from app.models.user import Role, User
 from app.schemas.student import StudentCreateAdmin, StudentUpdateAdmin
+from app.core.permissions import ensure_admin_school_scope
 from app.utils.project_members import normalize_project_members
 from app.utils.csv_parser import parse_trombi_csv
 
@@ -54,10 +55,7 @@ async def _get_school_id_for_student(db: AsyncSession, student_id: UUID) -> UUID
 
 
 def _ensure_admin_scope(current_user: User, target_school_id: UUID) -> None:
-    if current_user.role != Role.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
-    if current_user.school_id and current_user.school_id != target_school_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    ensure_admin_school_scope(current_user, target_school_id)
 
 
 async def import_students_from_csv(db: AsyncSession, current_user: User, class_id: UUID, file: UploadFile) -> int:

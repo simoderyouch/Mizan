@@ -17,3 +17,5 @@ cloudinary==1.38.0
 elevenlabs==1.0.0
 groq==0.4.2
 pytest==7.4.4
+slowapi==0.1.9
+loguru==0.7.2

@@ -1,7 +1,8 @@
 # main.py
 from contextlib import asynccontextmanager
-import logging
-
+from loguru import logger
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -24,10 +25,10 @@ from app.api.v1.routes.global_admin import router as global_admin_router
 from app.api.v1.routes.notifications import router as notifications_router
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal, get_db
+from app.core.rate_limit import limiter
 from app.services.resource_service import seed_default_resources
 from app.services.scheduler_service import scheduler
 
-logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -57,6 +58,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
