@@ -15,12 +15,13 @@ from app.models.resource import WellbeingResource
 from app.models.student import Exam, Project, Schedule, Student
 from app.models.task import Task
 from app.utils.project_members import normalize_project_members
+from app.utils.weekday import matches_today_weekday, today_weekday_name
 
 
 async def build_agent_context(db: AsyncSession, student_id: UUID) -> dict:
     today = date.today()
+    day_name = today_weekday_name(today)
     now = datetime.now(timezone.utc)
-    day_name = today.strftime("%A")
     tomorrow = today + timedelta(days=1)
     next_week = today + timedelta(days=7)
 
@@ -38,10 +39,8 @@ async def build_agent_context(db: AsyncSession, student_id: UUID) -> dict:
 
     student_obj, class_obj, promo_obj, filiere_obj = student_row
 
-    sched_res = await db.execute(
-        select(Schedule).where(and_(Schedule.student_id == student_id, Schedule.day_of_week == day_name))
-    )
-    schedule_rows = list(sched_res.scalars().all())
+    sched_res = await db.execute(select(Schedule).where(Schedule.student_id == student_id))
+    schedule_rows = [s for s in sched_res.scalars().all() if matches_today_weekday(s.day_of_week, today)]
     morning_courses_count = sum(1 for s in schedule_rows if s.start_time.hour < 12)
     today_schedule = [
         {

@@ -1,5 +1,6 @@
 # app/api/v1/routes/voice.py
-from fastapi import APIRouter, Depends, File, UploadFile, WebSocket, status, Request
+from fastapi import APIRouter, Depends, File, UploadFile, WebSocket, status, Request, HTTPException
+from loguru import logger
 from jose import JWTError
 from app.core.rate_limit import limiter
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.services.file_service import validate_audio_file_metadata
 from app.schemas.voice import (
+    VoiceAgentActionSummary,
     VoiceAnalysisResponse,
     VoiceSessionResponse,
     VoiceSessionStart,
@@ -26,6 +28,7 @@ from app.services.voice_service import (
     chat_with_voice_agent,
     stream_realtime_transcription,
 )
+from app.services.agent_orchestrator_service import summarize_agent_run_for_client
 from app.services.autonomous_events import build_chat_event, publish_autonomous_event
 
 router = APIRouter(prefix="/voice", tags=["Voice"])
@@ -104,12 +107,29 @@ async def api_voice_chat(
     db: AsyncSession = Depends(get_db)
 ):
     student = await get_student_by_user_id(db, current_user.id)
-    response = await chat_with_voice_agent(db, student.id, data)
+    try:
+        response = await chat_with_voice_agent(db, student.id, data)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Voice chat failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Voice chat failed") from exc
     if response.safety_level != "high":
-        await publish_autonomous_event(
-            db,
-            build_chat_event("VOICE", student_id=student.id, message=data.user_text),
-        )
+        try:
+            history = [{"role": m.role, "content": m.content} for m in data.history]
+            run = await publish_autonomous_event(
+                db,
+                build_chat_event(
+                    "VOICE",
+                    student_id=student.id,
+                    message=data.user_text,
+                    conversation_history=history,
+                ),
+            )
+            summary = summarize_agent_run_for_client(run)
+            response.agent_action = VoiceAgentActionSummary(**summary)
+        except Exception as exc:
+            logger.warning("Autonomous event after voice chat skipped: %s", exc)
     return response
 
 

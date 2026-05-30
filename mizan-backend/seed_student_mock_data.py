@@ -12,10 +12,7 @@ from app.models.mode_session import Mode, ModeSession
 from app.models.student import Exam, Project, Schedule, Student
 from app.models.task import Task
 from app.models.user import User
-
-
-def _weekday_name(offset_days: int) -> str:
-    return (date.today() + timedelta(days=offset_days)).strftime("%A")
+from app.services.demo_schedule_data import DEMO_EXAMS, DEMO_PROJECTS, DEMO_WEEKLY_SCHEDULE, exam_date_for_slot, project_due_for_slot
 
 
 async def _seed_one_student(db: AsyncSession, student: Student, user: User) -> None:
@@ -40,85 +37,39 @@ async def _seed_one_student(db: AsyncSession, student: Student, user: User) -> N
     schedules = [
         Schedule(
             student_id=student.id,
-            subject="Algorithms",
-            day_of_week=_weekday_name(0),
-            start_time=time(9, 0),
-            end_time=time(10, 30),
-            room="B12",
-            professor="Dr. Salmi",
-        ),
-        Schedule(
-            student_id=student.id,
-            subject="Databases",
-            day_of_week=_weekday_name(0),
-            start_time=time(11, 0),
-            end_time=time(12, 30),
-            room="C03",
-            professor="Pr. Benaissa",
-        ),
-        Schedule(
-            student_id=student.id,
-            subject="Software Engineering",
-            day_of_week=_weekday_name(1),
-            start_time=time(14, 0),
-            end_time=time(15, 30),
-            room="A07",
-            professor="Dr. Idrissi",
-        ),
-        Schedule(
-            student_id=student.id,
-            subject="Machine Learning",
-            day_of_week=_weekday_name(2),
-            start_time=time(10, 0),
-            end_time=time(11, 30),
-            room="Lab-2",
-            professor="Dr. Naji",
-        ),
+            subject=slot.subject,
+            day_of_week=slot.day_of_week,
+            start_time=slot.start_time,
+            end_time=slot.end_time,
+            room=slot.room,
+            professor=slot.professor,
+        )
+        for slot in DEMO_WEEKLY_SCHEDULE
     ]
     db.add_all(schedules)
 
     exams = [
         Exam(
             student_id=student.id,
-            subject="Algorithms Final",
-            exam_date=today + timedelta(days=2),
-            start_time=time(9, 0),
-            end_time=time(11, 0),
-            room="Exam Hall 1",
-        ),
-        Exam(
-            student_id=student.id,
-            subject="Databases Midterm",
-            exam_date=today + timedelta(days=6),
-            start_time=time(14, 0),
-            end_time=time(16, 0),
-            room="Exam Hall 2",
-        ),
+            subject=slot.subject,
+            exam_date=exam_date_for_slot(slot, today),
+            start_time=slot.start_time,
+            end_time=slot.end_time,
+            room=slot.room,
+        )
+        for slot in DEMO_EXAMS
     ]
     db.add_all(exams)
 
     projects = [
         Project(
             student_id=student.id,
-            name="Algorithms Revision Deck",
-            subject="Algorithms",
-            due_date=today + timedelta(days=1),
-            members={"team": ["You"]},
-        ),
-        Project(
-            student_id=student.id,
-            name="SQL Lab Report",
-            subject="Databases",
-            due_date=today + timedelta(days=4),
-            members={"team": ["You", "Yassine", "Meriem"]},
-        ),
-        Project(
-            student_id=student.id,
-            name="Capstone Prototype",
-            subject="Software Engineering",
-            due_date=today + timedelta(days=9),
-            members={"team": ["You", "Nour", "Adam"]},
-        ),
+            name=slot.name,
+            subject=slot.subject,
+            due_date=project_due_for_slot(slot, today),
+            members=slot.members,
+        )
+        for slot in DEMO_PROJECTS
     ]
     db.add_all(projects)
 

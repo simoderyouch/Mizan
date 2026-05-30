@@ -45,8 +45,8 @@ async def api_get_personalized_questions(
     db: AsyncSession = Depends(get_db),
 ):
     student = await get_student_by_user_id(db, current_user.id)
-    questions = await get_personalized_checkin_questions(db, student.id, period, mode)
-    return {"period": period, "mode": mode, "questions": questions}
+    questions, source = await get_personalized_checkin_questions(db, student.id, period, mode)
+    return {"period": period, "mode": mode, "questions": questions, "source": source}
 
 
 @router.post("/morning", response_model=MorningCheckinResponse)

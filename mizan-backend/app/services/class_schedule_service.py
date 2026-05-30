@@ -12,6 +12,18 @@ from app.models.user import Role, User
 from app.schemas.class_content import ScheduleCreate, ScheduleUpdate
 from app.services.file_service import validate_csv_file
 from app.utils.csv_parser import parse_schedule_csv
+from app.utils.weekday import normalize_weekday
+from app.services.class_schedule_sync import sync_schedules_to_all_students_in_class
+
+
+async def _auto_sync_class_schedules(
+    db: AsyncSession,
+    current_user: User,
+    class_id: UUID,
+) -> int:
+    """Copy class timetable slots to every student in the class (idempotent)."""
+    templates = await list_schedules_by_class(db, current_user, class_id)
+    return await sync_schedules_to_all_students_in_class(db, class_id, templates)
 
 
 async def _get_school_id_for_class(db: AsyncSession, class_id: UUID) -> UUID:
@@ -46,21 +58,24 @@ async def create_schedule_for_class(db: AsyncSession, current_user: User, class_
     if not student_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Class has no students")
 
-    for student_id in student_ids:
-        db.add(
-            Schedule(
-                student_id=student_id,
-                subject=data.subject,
-                day_of_week=data.day_of_week,
-                start_time=data.start_time,
-                end_time=data.end_time,
-                room=data.room,
-                professor=data.professor,
-            )
+    day = normalize_weekday(data.day_of_week)
+    # Seed one row, then auto-sync copies to every student in the class.
+    db.add(
+        Schedule(
+            student_id=student_ids[0],
+            subject=data.subject,
+            day_of_week=day,
+            start_time=data.start_time,
+            end_time=data.end_time,
+            room=data.room,
+            professor=data.professor,
         )
+    )
 
+    await db.flush()
+    synced = await _auto_sync_class_schedules(db, current_user, class_id)
     await db.commit()
-    return len(student_ids)
+    return len(student_ids) + synced
 
 
 async def list_schedules_by_class(db: AsyncSession, current_user: User, class_id: UUID) -> list[Schedule]:
@@ -124,7 +139,7 @@ async def update_schedule_entry(
         if data.subject is not None:
             row.subject = data.subject
         if data.day_of_week is not None:
-            row.day_of_week = data.day_of_week
+            row.day_of_week = normalize_weekday(data.day_of_week)
         if data.start_time is not None:
             row.start_time = data.start_time
         if data.end_time is not None:
@@ -133,6 +148,10 @@ async def update_schedule_entry(
             row.room = data.room
         if data.professor is not None:
             row.professor = data.professor
+
+    if apply_to_class:
+        await db.flush()
+        await _auto_sync_class_schedules(db, current_user, class_id)
 
     await db.commit()
     return len(rows)
@@ -199,24 +218,40 @@ async def import_schedule_from_csv(
         for row in existing.scalars().all():
             await db.delete(row)
 
-    count = 0
+    seed_student_id = student_ids[0]
+    slots = 0
     for row in rows:
         start_time_obj = datetime.strptime(row.get("start_time", "00:00"), "%H:%M").time()
         end_time_obj = datetime.strptime(row.get("end_time", "00:00"), "%H:%M").time()
-
-        for student_id in student_ids:
-            db.add(
-                Schedule(
-                    student_id=student_id,
-                    subject=row.get("subject", ""),
-                    day_of_week=row.get("day_of_week", ""),
-                    start_time=start_time_obj,
-                    end_time=end_time_obj,
-                    room=row.get("room", ""),
-                    professor=row.get("professor", ""),
-                )
+        day = normalize_weekday(row.get("day_of_week", ""))
+        db.add(
+            Schedule(
+                student_id=seed_student_id,
+                subject=row.get("subject", ""),
+                day_of_week=day,
+                start_time=start_time_obj,
+                end_time=end_time_obj,
+                room=row.get("room", ""),
+                professor=row.get("professor", ""),
             )
-            count += 1
+        )
+        slots += 1
 
+    await db.flush()
+    synced = await _auto_sync_class_schedules(db, current_user, class_id)
     await db.commit()
-    return count
+    return slots * len(student_ids) + synced
+
+
+async def sync_class_schedules_to_students(
+    db: AsyncSession,
+    current_user: User,
+    class_id: UUID,
+) -> dict[str, int]:
+    """Manual repair: backfill missing per-student copies (also runs automatically on changes)."""
+    _ensure_admin_scope(current_user, await _get_school_id_for_class(db, class_id))
+    student_count = len(await _get_class_student_ids(db, class_id))
+    templates = await list_schedules_by_class(db, current_user, class_id)
+    added = await sync_schedules_to_all_students_in_class(db, class_id, templates)
+    await db.commit()
+    return {"students": student_count, "template_slots": len(templates), "rows_added": added}

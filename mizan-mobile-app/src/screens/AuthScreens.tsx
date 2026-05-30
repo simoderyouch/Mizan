@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Eye, EyeOff } from "lucide-react-native";
 import { Screen } from "../components/screen";
-import { Button, Card, ErrorBanner, Field, styles as uiStyles } from "../components/ui";
+import { Button, ErrorBanner, Field, styles as uiStyles } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { authApi, getApiErrorMessage } from "../lib/api";
 import type { AuthStackParamList } from "../navigation/types";
@@ -16,12 +16,11 @@ function AuthShell({ children }: { children: React.ReactNode }) {
     <Screen>
       <View style={styles.brand}>
         <Image source={logo} resizeMode="contain" style={styles.logo} />
-        <Text style={uiStyles.subtitle}>Votre espace de sérénité numérique</Text>
       </View>
       {children}
       <View style={styles.security}>
         <View style={styles.securityDot} />
-        <Text style={styles.securityText}>Système sécurisé</Text>
+        <Text style={styles.securityText}>Secure system</Text>
       </View>
     </Screen>
   );
@@ -41,7 +40,7 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Email ou mot de passe incorrect."));
+      setError(getApiErrorMessage(err, "Incorrect email or password."));
     } finally {
       setLoading(false);
     }
@@ -49,26 +48,26 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
 
   return (
     <AuthShell>
-      <Card style={{ gap: spacing.lg }}>
-        <View>
-          <Text style={uiStyles.h1}>Bienvenue</Text>
-          <Text style={uiStyles.subtitle}>Connectez-vous pour retrouver votre équilibre.</Text>
+      <View style={styles.formContainer}>
+        <View style={styles.headerCentered}>
+          <Text style={[uiStyles.h1, { textAlign: "center" }]}>Welcome</Text>
+          <Text style={[uiStyles.subtitle, { textAlign: "center" }]}>Sign in to find your balance.</Text>
         </View>
         <ErrorBanner message={error} />
         <Field
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
-          label="Adresse e-mail"
+          label="Email address"
           onChangeText={setEmail}
-          placeholder="nom@exemple.com"
+          placeholder="name@example.com"
           value={email}
         />
         <View>
           <View style={styles.passwordLabelRow}>
-            <Text style={uiStyles.label}>Mot de passe</Text>
-            <Pressable onPress={() => navigation.navigate("Activate")}>
-              <Text style={styles.link}>Mot de passe oublié ?</Text>
+            <Text style={uiStyles.label}>Password</Text>
+            <Pressable onPress={() => navigation.navigate("ForgotPassword")}>
+              <Text style={styles.link}>Forgot password?</Text>
             </Pressable>
           </View>
           <View style={styles.passwordInputWrap}>
@@ -86,14 +85,14 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
           </View>
         </View>
         <Button loading={loading} disabled={!email || !password} onPress={submit}>
-          Se connecter
+          Sign in
         </Button>
         <Pressable onPress={() => navigation.navigate("Activate")} style={styles.centerPress}>
           <Text style={uiStyles.muted}>
-            Nouveau sur Mizan ? <Text style={styles.linkStrong}>Activer mon compte</Text>
+            New to Mizan? <Text style={styles.linkStrong}>Activate my account</Text>
           </Text>
         </Pressable>
-      </Card>
+      </View>
     </AuthShell>
   );
 }
@@ -110,7 +109,7 @@ export function ActivateScreen({ navigation }: NativeStackScreenProps<AuthStackP
       await authApi.requestActivation({ email: email.trim() });
       navigation.navigate("VerifyOtp", { email: email.trim() });
     } catch (err) {
-      setError(getApiErrorMessage(err, "Impossible d'envoyer le code. Vérifiez votre adresse e-mail."));
+      setError(getApiErrorMessage(err, "Could not send code. Please check your email address."));
     } finally {
       setLoading(false);
     }
@@ -118,29 +117,29 @@ export function ActivateScreen({ navigation }: NativeStackScreenProps<AuthStackP
 
   return (
     <AuthShell>
-      <Card style={{ gap: spacing.lg }}>
+      <View style={styles.formContainer}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.link}>Retour</Text>
+          <Text style={styles.link}>Back</Text>
         </Pressable>
-        <View>
-          <Text style={uiStyles.h1}>Activer mon compte</Text>
-          <Text style={uiStyles.subtitle}>
-            Entrez votre adresse e-mail académique pour recevoir un code d'activation.
+        <View style={styles.headerCentered}>
+          <Text style={[uiStyles.h1, { textAlign: "center" }]}>Activate my account</Text>
+          <Text style={[uiStyles.subtitle, { textAlign: "center" }]}>
+            Enter your academic email address to receive an activation code.
           </Text>
         </View>
         <ErrorBanner message={error} />
         <Field
           autoCapitalize="none"
           keyboardType="email-address"
-          label="Adresse e-mail"
+          label="Email address"
           onChangeText={setEmail}
-          placeholder="votre.email@ecole.ma"
+          placeholder="your.email@school.edu"
           value={email}
         />
         <Button loading={loading} disabled={!email} onPress={submit}>
-          Recevoir le code
+          Get the code
         </Button>
-      </Card>
+      </View>
     </AuthShell>
   );
 }
@@ -162,7 +161,7 @@ export function VerifyOtpScreen({
       const res = await authApi.verifyOtp({ email: route.params.email, otp });
       navigation.navigate("SetPassword", { tempToken: res.temp_token });
     } catch (err) {
-      setError(getApiErrorMessage(err, "Code invalide. Veuillez réessayer."));
+      setError(getApiErrorMessage(err, "Invalid code. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -170,13 +169,13 @@ export function VerifyOtpScreen({
 
   return (
     <AuthShell>
-      <Card style={{ gap: spacing.lg }}>
+      <View style={styles.formContainer}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.link}>Retour</Text>
+          <Text style={styles.link}>Back</Text>
         </Pressable>
-        <View>
-          <Text style={uiStyles.h1}>Vérification</Text>
-          <Text style={uiStyles.subtitle}>Entrez le code à 6 chiffres envoyé à {route.params.email}.</Text>
+        <View style={styles.headerCentered}>
+          <Text style={[uiStyles.h1, { textAlign: "center" }]}>Verification</Text>
+          <Text style={[uiStyles.subtitle, { textAlign: "center" }]}>Enter the 6-digit code sent to {route.params.email}.</Text>
         </View>
         <ErrorBanner message={error} />
         <View style={styles.otpRow}>
@@ -194,9 +193,9 @@ export function VerifyOtpScreen({
           value={otp}
         />
         <Button loading={loading} disabled={otp.length !== 6} onPress={submit}>
-          Vérifier le code
+          Verify code
         </Button>
-      </Card>
+      </View>
     </AuthShell>
   );
 }
@@ -222,7 +221,7 @@ export function SetPasswordScreen({
       });
       await setTokens(tokens);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Erreur lors de la création du mot de passe."));
+      setError(getApiErrorMessage(err, "Error creating password."));
     } finally {
       setLoading(false);
     }
@@ -230,33 +229,148 @@ export function SetPasswordScreen({
 
   return (
     <AuthShell>
-      <Card style={{ gap: spacing.lg }}>
-        <View>
-          <Text style={uiStyles.h1}>Créer votre mot de passe</Text>
-          <Text style={uiStyles.subtitle}>Choisissez un mot de passe sécurisé pour votre compte Mizan.</Text>
+      <View style={styles.formContainer}>
+        <View style={styles.headerCentered}>
+          <Text style={[uiStyles.h1, { textAlign: "center" }]}>Create your password</Text>
+          <Text style={[uiStyles.subtitle, { textAlign: "center" }]}>Choose a secure password for your Mizan account.</Text>
         </View>
         <ErrorBanner message={error} />
         <Field
-          label="Mot de passe"
+          label="Password"
           onChangeText={setPassword}
-          placeholder="8 caractères minimum"
+          placeholder="8 characters minimum"
           secureTextEntry
           value={password}
         />
         <Field
-          label="Confirmer le mot de passe"
+          label="Confirm password"
           onChangeText={setConfirmPassword}
-          placeholder="Confirmez votre mot de passe"
+          placeholder="Confirm your password"
           secureTextEntry
           value={confirmPassword}
         />
         <Text style={canSubmit ? styles.requirementOk : uiStyles.muted}>
-          8 caractères minimum et mots de passe identiques
+          8 characters minimum and matching passwords
         </Text>
         <Button loading={loading} disabled={!canSubmit} onPress={submit}>
-          Créer mon compte
+          Create my account
         </Button>
-      </Card>
+      </View>
+    </AuthShell>
+  );
+}
+
+export function ForgotPasswordScreen({ navigation }: NativeStackScreenProps<AuthStackParamList, "ForgotPassword">) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      await authApi.forgotPassword({ email: email.trim() });
+      navigation.navigate("VerifyResetOtp", { email: email.trim() });
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not send reset code."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthShell>
+      <View style={styles.formContainer}>
+        <View style={styles.headerCentered}>
+          <Text style={[uiStyles.h1, { textAlign: "center" }]}>Reset password</Text>
+          <Text style={[uiStyles.subtitle, { textAlign: "center" }]}>We will email you a verification code.</Text>
+        </View>
+        <ErrorBanner message={error} />
+        <Field label="Email address" autoCapitalize="none" keyboardType="email-address" onChangeText={setEmail} value={email} />
+        <Button loading={loading} disabled={!email.trim()} onPress={submit}>Send code</Button>
+        <Pressable onPress={() => navigation.navigate("Login")} style={styles.centerPress}>
+          <Text style={styles.linkStrong}>Back to sign in</Text>
+        </Pressable>
+      </View>
+    </AuthShell>
+  );
+}
+
+export function VerifyResetOtpScreen({
+  route,
+  navigation,
+}: NativeStackScreenProps<AuthStackParamList, "VerifyResetOtp">) {
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await authApi.verifyResetOtp({ email: route.params.email, otp: otp.trim() });
+      navigation.navigate("ResetPassword", { tempToken: res.temp_token });
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Invalid or expired code."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthShell>
+      <View style={styles.formContainer}>
+        <View style={styles.headerCentered}>
+          <Text style={[uiStyles.h1, { textAlign: "center" }]}>Verify code</Text>
+          <Text style={[uiStyles.subtitle, { textAlign: "center" }]}>Enter the 6-digit code sent to {route.params.email}</Text>
+        </View>
+        <ErrorBanner message={error} />
+        <Field label="Verification code" keyboardType="number-pad" onChangeText={setOtp} value={otp} maxLength={6} />
+        <Button loading={loading} disabled={otp.trim().length < 6} onPress={submit}>Verify</Button>
+      </View>
+    </AuthShell>
+  );
+}
+
+export function ResetPasswordScreen({
+  route,
+}: NativeStackScreenProps<AuthStackParamList, "ResetPassword">) {
+  const { setTokens } = useAuth();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const canSubmit = password.length >= 8 && password === confirmPassword;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    setError("");
+    try {
+      const tokens = await authApi.resetPassword({
+        token: route.params.tempToken,
+        new_password: password,
+      });
+      await setTokens(tokens);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not reset password."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthShell>
+      <View style={styles.formContainer}>
+        <View style={styles.headerCentered}>
+          <Text style={[uiStyles.h1, { textAlign: "center" }]}>New password</Text>
+          <Text style={[uiStyles.subtitle, { textAlign: "center" }]}>Choose a new secure password.</Text>
+        </View>
+        <ErrorBanner message={error} />
+        <Field label="Password" secureTextEntry onChangeText={setPassword} value={password} />
+        <Field label="Confirm password" secureTextEntry onChangeText={setConfirmPassword} value={confirmPassword} />
+        <Button loading={loading} disabled={!canSubmit} onPress={submit}>Update password</Button>
+      </View>
     </AuthShell>
   );
 }
@@ -266,11 +380,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     marginBottom: spacing.xl,
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
   },
   logo: {
-    height: 80,
-    width: 132,
+    height: 120,
+    width: 120,
+  },
+  headerCentered: {
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  formContainer: {
+    gap: spacing.xl,
   },
   security: {
     alignItems: "center",
@@ -324,11 +445,11 @@ const styles = StyleSheet.create({
   },
   otpBox: {
     alignItems: "center",
-    backgroundColor: colors.surfaceHigh,
-    borderRadius: 12,
-    height: 48,
+    backgroundColor: colors.surfaceLow,
+    borderRadius: 16,
+    height: 56,
     justifyContent: "center",
-    width: 42,
+    width: 48,
   },
   otpText: {
     color: colors.text,

@@ -11,3 +11,7 @@ def test_normalize_project_members_from_list() -> None:
 
 def test_normalize_project_members_from_csv_string() -> None:
     assert normalize_project_members("You, Yassine, Meriem") == ["You", "Yassine", "Meriem"]
+
+
+def test_normalize_project_members_multiline_and_dedupe() -> None:
+    assert normalize_project_members("You\nYassine; You, Meriem") == ["You", "Yassine", "Meriem"]

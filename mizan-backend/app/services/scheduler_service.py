@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
 from app.models.agent_run import AgentDecision, AgentRun
 from app.models.student import Student
+from app.services.agent_contract_service import expire_pending_contracts
 from app.services.autonomous_events import build_periodic_scan_event, publish_autonomous_event
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,10 @@ class AutonomousScheduler:
 
     async def _run_scan_cycle(self):
         async with AsyncSessionLocal() as db:
+            expired = await expire_pending_contracts(db)
+            if expired:
+                logger.info("Expired %d pending action commitments", expired)
+
             # Fetch all student IDs
             result = await db.execute(select(Student.id))
             student_ids = result.scalars().all()

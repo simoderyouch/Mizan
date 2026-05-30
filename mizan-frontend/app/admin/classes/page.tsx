@@ -320,7 +320,7 @@ export default function AdminClassesPage() {
           <h1 className="text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">Academy</h1>
           <p className="mt-2 text-base text-on-surface-variant">Configure institutional structure and manage academic content.</p>
         </div>
-        <Button variant="ghost" onClick={() => void refreshCurrentScope()} disabled={bootstrapLoading || refreshing} className="rounded-xl border-none bg-surface-container-low shadow-sm transition-all hover:bg-surface-container-high text-primary">
+        <Button variant="ghost" onClick={() => void refreshCurrentScope()} disabled={bootstrapLoading || refreshing} className="rounded-lg border-none bg-surface-container-low shadow-sm transition-all hover:bg-surface-container-high text-primary">
           {refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
           Refresh
         </Button>
@@ -335,27 +335,27 @@ export default function AdminClassesPage() {
         <CardContent>
           {bootstrapLoading ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Skeleton className="h-[72px] rounded-2xl bg-surface-container-low" />
-              <Skeleton className="h-[72px] rounded-2xl bg-surface-container-low" />
-              <Skeleton className="h-[72px] rounded-2xl bg-surface-container-low" />
+              <Skeleton className="h-[72px] rounded-xl bg-surface-container-low" />
+              <Skeleton className="h-[72px] rounded-xl bg-surface-container-low" />
+              <Skeleton className="h-[72px] rounded-xl bg-surface-container-low" />
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="space-y-2.5">
                 <Label htmlFor="school-filter" className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant ml-1">School</Label>
                 <div className="relative">
-                  <Input id="school-filter" value={selectedSchool?.name ?? "No school"} disabled className="rounded-xl border-none bg-surface-container-low/50 text-on-surface-variant font-medium" />
+                  <Input id="school-filter" value={selectedSchool?.name ?? "No school"} disabled className="rounded-lg border-none bg-surface-container-low/50 text-on-surface-variant font-medium" />
                 </div>
               </div>
               <div className="space-y-2.5">
                 <Label htmlFor="filiere-filter" className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant ml-1">Filiere</Label>
                 <Select value={selectedFiliereId} onValueChange={setSelectedFiliereId} disabled={filieresLoading || !filieres.length}>
-                  <SelectTrigger id="filiere-filter" className="rounded-xl border-none bg-surface-container-low hover:bg-surface-container shadow-sm transition-colors ring-offset-transparent focus:ring-0">
+                  <SelectTrigger id="filiere-filter" className="rounded-lg border-none bg-surface-container-low hover:bg-surface-container shadow-sm transition-colors ring-offset-transparent focus:ring-0">
                     <SelectValue placeholder="Select filiere" />
                   </SelectTrigger>
                   <SelectContent className="border-none bg-surface-container-high shadow-sanctuary">
                     {filieres.map((filiere) => (
-                      <SelectItem key={filiere.id} value={filiere.id} className="rounded-lg focus:bg-primary/5 focus:text-primary">
+                      <SelectItem key={filiere.id} value={filiere.id} className="rounded-md focus:bg-primary/5 focus:text-primary">
                         {filiere.name}
                       </SelectItem>
                     ))}
@@ -365,12 +365,12 @@ export default function AdminClassesPage() {
               <div className="space-y-2.5">
                 <Label htmlFor="promotion-filter" className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant ml-1">Promotion</Label>
                 <Select value={selectedPromotionId} onValueChange={setSelectedPromotionId} disabled={promotionsLoading || !promotions.length}>
-                  <SelectTrigger id="promotion-filter" className="rounded-xl border-none bg-surface-container-low hover:bg-surface-container shadow-sm transition-colors ring-offset-transparent focus:ring-0">
+                  <SelectTrigger id="promotion-filter" className="rounded-lg border-none bg-surface-container-low hover:bg-surface-container shadow-sm transition-colors ring-offset-transparent focus:ring-0">
                     <SelectValue placeholder="Select promotion" />
                   </SelectTrigger>
                   <SelectContent className="border-none bg-surface-container-high shadow-sanctuary">
                     {promotions.map((promotion) => (
-                      <SelectItem key={promotion.id} value={promotion.id} className="rounded-lg focus:bg-primary/5 focus:text-primary">
+                      <SelectItem key={promotion.id} value={promotion.id} className="rounded-md focus:bg-primary/5 focus:text-primary">
                         {promotion.name}
                       </SelectItem>
                     ))}
@@ -388,10 +388,10 @@ export default function AdminClassesPage() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeCreateTab} onValueChange={(value) => setActiveCreateTab(value as CreateTab)}>
-            <TabsList className="mb-6 h-auto w-full grid-cols-3 gap-2 bg-surface-container-low p-1.5 rounded-2xl">
-              <TabsTrigger value="filiere" className="rounded-xl w-full py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all">Filiere</TabsTrigger>
-              <TabsTrigger value="promotion" className="rounded-xl w-full py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all">Promotion</TabsTrigger>
-              <TabsTrigger value="class" className="rounded-xl w-full py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all">Class</TabsTrigger>
+            <TabsList className="mb-6 h-auto w-full grid-cols-3 gap-2 bg-surface-container-low p-1.5 rounded-xl">
+              <TabsTrigger value="filiere" className="rounded-lg w-full py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all">Filiere</TabsTrigger>
+              <TabsTrigger value="promotion" className="rounded-lg w-full py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all">Promotion</TabsTrigger>
+              <TabsTrigger value="class" className="rounded-lg w-full py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all">Class</TabsTrigger>
             </TabsList>
 
             <TabsContent value="filiere">
@@ -580,7 +580,7 @@ export default function AdminClassesPage() {
 
               <div className="space-y-2 md:hidden">
                 {classes.map((classItem) => (
-                  <div key={classItem.id} className="rounded-2xl bg-surface-container-low p-4 transition-all hover:bg-surface-container-high">
+                  <div key={classItem.id} className="rounded-xl bg-surface-container-low p-4 transition-all hover:bg-surface-container-high border border-surface-container-high/50">
                     <p className="font-bold text-on-surface">{classItem.name}</p>
                     <p className="text-[10px] font-medium uppercase tracking-wider text-on-surface-variant mt-1">{classItem.academic_year}</p>
                     <div className="mt-4 flex flex-wrap gap-2">

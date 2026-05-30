@@ -1,4 +1,5 @@
 import json
+import re
 from loguru import logger
 
 from mistralai.client import Mistral
@@ -15,6 +16,22 @@ settings = get_settings()
 
 def _mistral_configured() -> bool:
     return bool((settings.MISTRAL_API_KEY or "").strip())
+
+
+def normalize_daily_plan_text(raw: str, max_lines: int = 3, max_words: int = 5) -> str:
+    """Dashboard focus card: at most three short bullets (~5 words each)."""
+    lines: list[str] = []
+    for chunk in raw.replace("\r", "").split("\n"):
+        line = re.sub(r"^[\d\-*•.)]+\s*", "", chunk.strip())
+        if not line:
+            continue
+        words = line.split()
+        if len(words) > max_words:
+            line = " ".join(words[:max_words])
+        lines.append(line)
+        if len(lines) >= max_lines:
+            break
+    return "\n".join(lines)
 
 
 def _compute_stress_level(stress: dict) -> str:
@@ -172,7 +189,26 @@ You must output ONLY valid JSON using the following schema exactly:
         }
 
 
-async def chat_with_agent(context: dict, student_message: str) -> dict:
+def _format_chat_transcript(conversation_history: list[dict] | None, student_message: str) -> str:
+    lines: list[str] = []
+    for turn in conversation_history or []:
+        role = str(turn.get("role", "user")).strip().lower()
+        content = str(turn.get("content", "")).strip()
+        if not content:
+            continue
+        speaker = "Student" if role == "user" else "Mizan"
+        lines.append(f"{speaker}: {content}")
+    if student_message.strip():
+        lines.append(f"Student (latest): {student_message.strip()}")
+    return "\n".join(lines) if lines else f"Student (latest): {student_message.strip()}"
+
+
+async def chat_with_agent(
+    context: dict,
+    student_message: str,
+    *,
+    conversation_history: list[dict] | None = None,
+) -> dict:
     safety_assessment = assess_text_safety(student_message)
     if safety_assessment.is_high_risk:
         return {
@@ -200,104 +236,47 @@ async def chat_with_agent(context: dict, student_message: str) -> dict:
 
     client = Mistral(api_key=settings.MISTRAL_API_KEY)
 
+    import json
+
     student = context.get("student", {})
     student_name = student.get("name", "a student")
-    schedule = context.get("today_schedule", [])
-    exams = context.get("upcoming_exams", [])
-    projects = context.get("upcoming_projects", [])
-    goals = context.get("active_goals", [])
-    tasks = context.get("today_tasks", [])
-    resources = context.get("recommended_resources", [])
-    stress = context.get("stress_indicators", {})
-    current_mode = context.get("current_mode")
-    stress_level = _compute_stress_level(stress)
-
-    schedule_text = "\n".join(
-        [f"- {s['subject']} ({s['start_time']} - {s['end_time']})" for s in schedule]
-    ) or "No classes today."
-    exam_count = len(exams)
-    exam_text = "\n".join(
-        [f"- {e['subject']} in {e['days_until']} day(s)" for e in exams[:12]]
-    ) or "No upcoming exams."
-    project_count = len(projects)
-    project_text = "\n".join(
-        [f"- {p['name']} due in {p['days_until']} day(s)" for p in projects[:12]]
-    ) or "No upcoming projects."
-    goal_text = _build_goal_overview(goals[:5])
-    task_text = "\n".join(
-        [f"- [{t.get('status', 'pending')}] {t.get('title', 'Task')}" for t in tasks[:8]]
-    ) or "No tasks for today yet."
-    resource_text = "\n".join(
-        [
-            f"- {r.get('title', 'Resource')} ({r.get('type', 'RESOURCE')}, trigger={r.get('mood_trigger', 'general')}): {r.get('url', '')} | guidance: {r.get('ai_instruction', '')}"
-            for r in resources[:5]
-        ]
-    ) or "No specific resources available."
-    mode_text = (
-        f"{current_mode['mode']} started at {current_mode['started_at']} ({current_mode['duration_so_far_minutes']} min)"
-        if current_mode
-        else "No active mode"
-    )
-
-    prompt = f"""You are Mizan, an empathetic student wellbeing coach.
-You are chatting with {student_name}.
-
-Context:
-Today schedule:
-{schedule_text}
-
-Upcoming exams:
-{exam_text}
-
-Upcoming projects:
-{project_text}
-
-Active goals:
-{goal_text}
-
-Today's tasks:
-{task_text}
-
-Recommended resources:
-{resource_text}
-
-Stress indicators:
-- exam tomorrow: {stress.get('has_exam_tomorrow', False)}
-- exam this week: {stress.get('has_exam_this_week', False)}
-- overdue projects: {stress.get('overdue_projects', 0)}
-- consecutive low mood days: {stress.get('consecutive_low_mood_days', 0)}
-- stress level: {stress_level}
-- current mode: {mode_text}
-- upcoming exams count: {exam_count}
-- upcoming projects count: {project_count}
-
-Student message:
-{student_message}
-
-Instructions:
-- Primary role: mental wellbeing support for a student, not a task generator.
-- Be concise, supportive, and actionable.
-- First answer the user's direct question naturally.
-- Give concrete next steps with time-boxing when relevant.
-- If stress signals are medium/high, include one recovery step and one academic step.
-- When useful, suggest switching work mode (REVISION / EXAMEN / PROJET / REPOS / SPORT / COURS).
-- Keep response under 200 words.
-- Do not create a plan or task list unless the user explicitly asks for planning, tasks, next steps, or organization.
-- For general chat, emotional support, motivation, or conceptual questions, do not output a task list.
-- Do not use emojis.
-- Prefer one strong recommendation over many shallow suggestions.
-- Do not restate the full "Today's tasks" list unless the user explicitly asks for the list.
-- If task context is needed, mention at most one priority task in one short sentence.
-- Use current mode context and propose a mode switch only when it clearly helps.
-- When useful, suggest one relevant recommended resource with a short reason (do not dump multiple links).
-- Respond in English only.
-- If the user asks for counts (e.g., how many exams), use exact numbers from context and never guess.
-"""
+    context_bundle = {
+        "student": student,
+        "today_schedule": context.get("today_schedule", []),
+        "upcoming_exams": context.get("upcoming_exams", []),
+        "upcoming_projects": context.get("upcoming_projects", []),
+        "active_goals": context.get("active_goals", []),
+        "today_tasks": context.get("today_tasks", []),
+        "recommended_resources": context.get("recommended_resources", []),
+        "stress_indicators": context.get("stress_indicators", {}),
+        "current_mode": context.get("current_mode"),
+        "last_checkin": context.get("last_checkin"),
+        "scan_data": context.get("scan_data"),
+    }
+    context_json = json.dumps(context_bundle, ensure_ascii=False, default=str, indent=2)
+    messages: list[dict[str, str]] = [
+        {
+            "role": "user",
+            "content": (
+                f"You are Mizan, an empathetic student wellbeing coach for {student_name}.\n\n"
+                f"Full student context (JSON — use exact data, never invent subjects):\n{context_json}\n\n"
+                "Instructions: read the conversation thread; stay on the topic they care about "
+                "(project vs exam vs wellbeing). Be concise (under 200 words). No emojis."
+            ),
+        }
+    ]
+    for turn in (conversation_history or [])[-20:]:
+        role = str(turn.get("role", "")).strip().lower()
+        content = str(turn.get("content", "")).strip()
+        if role in {"user", "assistant"} and content:
+            messages.append({"role": role, "content": content})
+    if not messages or messages[-1].get("content") != student_message.strip():
+        messages.append({"role": "user", "content": student_message.strip()})
 
     try:
         response = await client.chat.complete_async(
             model=settings.MISTRAL_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
         )
         return {
             "response": _extract_chat_response_text(response),
@@ -334,14 +313,28 @@ Context for {name}:
 - Mood: {mood_score}/5
 - Stress Level: {stress_level}
 
-Create a well-structured, motivational daily plan for the student. Provide exactly three concise bullet points in English."""
+Create a daily plan with EXACTLY three bullet points.
+CRITICAL RULE: Each point MUST be at most 5 words. No subtitles, no explanations, no long sentences.
+You MUST respond with ONLY a valid JSON object in this format:
+{{"plan": ["point 1", "point 2", "point 3"]}}"""
 
     try:
         response = await client.chat.complete_async(
             model=settings.MISTRAL_MODEL,
             messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
         )
-        return _extract_chat_response_text(response)
+        raw_text = _extract_chat_response_text(response)
+        try:
+            data = json.loads(raw_text)
+            plan_list = data.get("plan", [])
+            if isinstance(plan_list, list) and plan_list:
+                return normalize_daily_plan_text("\n".join(str(p) for p in plan_list))
+        except Exception:
+            pass
+        return normalize_daily_plan_text(raw_text.strip())
     except Exception as e:
         logger.error(f"Mistral API failed during daily plan: {e}")
-        return "1. Start with a priority task.\n2. Take regular breaks.\n3. End the day by checking what should move to tomorrow."
+        return normalize_daily_plan_text(
+            "Start with a priority task.\nTake regular breaks.\nReview tomorrow before ending day."
+        )

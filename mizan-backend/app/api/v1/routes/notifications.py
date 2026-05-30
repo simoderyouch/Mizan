@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, WebSocket, status
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, status
+from starlette.websockets import WebSocketDisconnect
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.models.user import User
 from app.schemas.notification import NotificationReadUpdate, NotificationResponse
 from app.services.notification_realtime import notification_connections
 from app.services.notification_service import (
+    create_notification,
     list_notifications,
     mark_all_notifications_read,
     mark_notification_read,
@@ -55,7 +57,8 @@ async def _authenticate_websocket_user(websocket: WebSocket) -> User | None:
         return user
 
 
-@router.get("/", response_model=list[NotificationResponse])
+@router.get("", response_model=list[NotificationResponse])
+@router.get("/", response_model=list[NotificationResponse], include_in_schema=False)
 async def api_list_notifications(
     unread_only: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
@@ -99,6 +102,29 @@ async def api_mark_all_notifications_read(
     return {"updated_count": count}
 
 
+@router.post("/test", response_model=NotificationResponse)
+async def api_send_test_notification(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a test notification and push it via WebSocket + Expo push."""
+    student = await get_student_by_user_id(db, current_user.id)
+    notification = await create_notification(
+        db,
+        student_id=student.id,
+        title="Mizan test notification",
+        body="Realtime alerts are working on your device.",
+        notification_type="info",
+        payload={"source": "test", "daily_cap_exempt": True},
+    )
+    if not notification:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Could not send test notification (daily cap reached).",
+        )
+    return notification
+
+
 @router.websocket("/ws")
 async def api_notifications_ws(websocket: WebSocket):
     current_user = await _authenticate_websocket_user(websocket)
@@ -113,12 +139,15 @@ async def api_notifications_ws(websocket: WebSocket):
     try:
         async with AsyncSessionLocal() as db:
             recent = await list_notifications(db, student_id=student.id, unread_only=False, limit=20)
-            await websocket.send_json(
-                {
-                    "type": "notification.snapshot",
-                    "notifications": [notification_to_payload(item) for item in recent],
-                }
-            )
+            try:
+                await websocket.send_json(
+                    {
+                        "type": "notification.snapshot",
+                        "notifications": [notification_to_payload(item) for item in recent],
+                    }
+                )
+            except WebSocketDisconnect:
+                return
 
         while True:
             packet = await websocket.receive()
@@ -127,6 +156,11 @@ async def api_notifications_ws(websocket: WebSocket):
                 break
             text = (packet.get("text") or "").strip().lower()
             if text == "ping":
-                await websocket.send_json({"type": "pong"})
+                try:
+                    await websocket.send_json({"type": "pong"})
+                except WebSocketDisconnect:
+                    break
+    except WebSocketDisconnect:
+        pass
     finally:
         notification_connections.disconnect(student.id, websocket)

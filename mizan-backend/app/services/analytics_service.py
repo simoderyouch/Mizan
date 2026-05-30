@@ -150,44 +150,33 @@ async def get_weekly_report(db: AsyncSession, student_id: UUID) -> WeeklyReport:
 
 
 async def get_student_dashboard(db: AsyncSession, student_id: UUID) -> StudentDashboard:
+    from app.utils.weekday import matches_today_weekday
+
     context = await build_agent_context(db, student_id)
-    
+    today = date.today()
+
     student_res = await db.execute(select(Student).where(Student.id == student_id))
     student = student_res.scalars().first()
-    
+
     has_morning = await has_morning_checkin_today(db, student_id)
     has_evening = await has_evening_checkin_today(db, student_id)
     mood_trend = await get_mood_graph(db, student_id, days=7)
-    
-    active_goals_count = len(context.get("active_goals", []))
-    
-    today_schedule = []
-    for s in context.get("today_schedule", []):
-        start_t = datetime.strptime(s["start_time"], "%H:%M").time() if isinstance(s["start_time"], str) else s["start_time"]
-        end_t = datetime.strptime(s["end_time"], "%H:%M").time() if isinstance(s["end_time"], str) else s["end_time"]
-        today_schedule.append({
-            "id": uuid.uuid4(),
-            "student_id": student_id,
-            "subject": s["subject"],
-            "day_of_week": date.today().strftime("%A"),
-            "start_time": start_t,
-            "end_time": end_t,
-            "room": s["room"],
-            "professor": s["professor"]
-        })
 
-    upcoming_exams = []
-    for e in context.get("upcoming_exams", []):
-        exam_d = date.fromisoformat(e["exam_date"]) if isinstance(e["exam_date"], str) else e["exam_date"]
-        upcoming_exams.append({
-            "id": uuid.uuid4(),
-            "student_id": student_id,
-            "subject": e["subject"],
-            "exam_date": exam_d,
-            "start_time": time(0, 0),
-            "end_time": time(0, 0),
-            "room": e.get("room", "")
-        })
+    active_goals_count = len(context.get("active_goals", []))
+
+    schedule_res = await db.execute(
+        select(Schedule).where(Schedule.student_id == student_id).order_by(Schedule.start_time.asc())
+    )
+    all_schedules = list(schedule_res.scalars().all())
+    weekly_schedule = all_schedules
+    today_schedule = [s for s in all_schedules if matches_today_weekday(s.day_of_week, today)]
+
+    exam_res = await db.execute(
+        select(Exam)
+        .where(and_(Exam.student_id == student_id, Exam.exam_date >= today))
+        .order_by(Exam.exam_date.asc(), Exam.start_time.asc())
+    )
+    upcoming_exams = list(exam_res.scalars().all())
 
     current_mode = None
     if context.get("current_mode"):
@@ -210,7 +199,8 @@ async def get_student_dashboard(db: AsyncSession, student_id: UUID) -> StudentDa
         active_goals_count=active_goals_count,
         upcoming_exams=upcoming_exams,
         today_schedule=today_schedule,
-        mood_trend=mood_trend
+        weekly_schedule=weekly_schedule,
+        mood_trend=mood_trend,
     )
 
 

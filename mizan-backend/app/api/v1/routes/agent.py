@@ -4,6 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, Field
+from typing import Literal
 from app.core.rate_limit import limiter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +26,10 @@ from app.services.agent_contract_service import (
     list_action_contracts,
     process_due_contract_followups,
     respond_action_contract,
+    trigger_label_for,
 )
+from app.services.agent_orchestrator_service import summarize_agent_run_for_client
+from app.services.agent_orchestrator_service import summarize_agent_run_for_client
 from app.services.agent_service import chat_with_agent, generate_daily_plan
 from app.services.context_builder import build_agent_context
 from app.services.student_service import get_student_by_user_id
@@ -38,8 +42,36 @@ class PlanRequest(BaseModel):
     mood_score: int = Field(ge=1, le=5)
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=24)
+
+
+class AgentActionSummary(BaseModel):
+    run_id: str | None = None
+    status: str | None = None
+    action: str | None = None
+    took_action: bool = False
+    skipped: bool = False
+    message: str | None = None
+    skip_reason: str | None = None
+    actions: list[str] = Field(default_factory=list)
+    notification_id: str | None = None
+    task_id: str | None = None
+    contract_id: str | None = None
+    thought: str | None = None
+
+
+class ChatResponse(BaseModel):
+    response: str
+    safety_level: str | None = None
+    safety_action: str | None = None
+    agent_action: AgentActionSummary | None = None
 
 
 class AgentTestTriggerRequest(BaseModel):
@@ -75,6 +107,7 @@ class AgentContractResponse(BaseModel):
     student_id: str
     run_id: str
     task_id: str | None
+    task_title: str | None = None
     contract_text: str
     adaptive_level: str
     status: str
@@ -83,11 +116,19 @@ class AgentContractResponse(BaseModel):
     responded_at: str | None
     completed_at: str | None
     followup_sent_at: str | None
+    decline_reason: str | None = None
+    trigger_type: str | None = None
+    trigger_label: str | None = None
     created_at: str
 
 
 class AgentContractRespondRequest(BaseModel):
     accepted: bool = True
+    decline_reason: str | None = Field(default=None, max_length=40)
+
+
+class AgentContractCompleteRequest(BaseModel):
+    from_pending: bool = False
 
 
 class ProcessFollowupsResponse(BaseModel):
@@ -100,10 +141,13 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "SEND_AND_CREATE",
             "thought": "Forced high-stress scenario: exam crunch with overload signs.",
             "notification_title": "High stress: exam crunch plan",
-            "notification_body": "Validation scenario: pressure is high. Start a short reset then a protected exam focus block.",
+            "notification_body": "Pressure is high before exams. Take a 10-minute reset, then one protected EXAMEN focus block.",
+            "notification_type": "mode",
             "task_title": "Stress reset + 30-min exam sprint",
             "task_description": "Do a 10-minute calming reset, then one 30-minute focused exam sprint with no distractions.",
             "suggested_mode": "EXAMEN",
+            "task_dedup_hours": 0,
+            "notification_cooldown_hours": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_HIGH_STRESS_BURNOUT_RISK":
@@ -111,9 +155,13 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "ESCALATE_WELLBEING",
             "thought": "Forced high-stress scenario: burnout risk and persistent distress.",
             "notification_title": "High stress alert: burnout risk",
-            "notification_body": "Validation scenario: sustained overload detected. Prioritize recovery and reduce load now.",
+            "notification_body": "Sustained overload detected. Prioritize recovery and reduce load now — Mizan queued an urgent plan.",
+            "notification_type": "critical_wellbeing",
+            "followup_notification_type": "critical_wellbeing_followup",
             "task_title": "Burnout prevention protocol",
             "task_description": "Take a 20-minute recovery block, pause non-urgent work, and complete one minimal priority task.",
+            "notification_cooldown_hours": 0,
+            "followup_cooldown_hours": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_HIGH_STRESS_OVERDUE_SPIRAL":
@@ -121,8 +169,10 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "PROPOSE_MODE_SWITCH",
             "thought": "Forced high-stress scenario: overdue tasks spiral with urgency.",
             "notification_title": "Stabilize workload now",
-            "notification_body": "Validation scenario: switch mode to recover control and clear one high-impact item first.",
+            "notification_body": "Too many overdue items. Switch to PROJET mode and clear one high-impact milestone.",
+            "notification_type": "mode",
             "suggested_mode": "PROJET",
+            "notification_cooldown_hours": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_AFTER_LUNCH_RESET":
@@ -130,10 +180,13 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "SEND_AND_CREATE",
             "thought": "Forced validation scenario: post-lunch energy dip intervention.",
             "notification_title": "After-lunch reset",
-            "notification_body": "Validation scenario: do a 10-minute reset, hydrate, then start one short focus sprint.",
+            "notification_body": "Energy dip detected after lunch. Reset for 10 minutes, then start one short REVISION sprint.",
+            "notification_type": "info",
             "task_title": "Post-lunch reset + 25-min focus sprint",
             "task_description": "Take 10 minutes to reset after lunch, then complete one 25-minute focused task.",
             "suggested_mode": "REVISION",
+            "task_dedup_hours": 0,
+            "notification_cooldown_hours": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_MODE_SWITCH":
@@ -141,8 +194,10 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "PROPOSE_MODE_SWITCH",
             "thought": "Forced validation scenario: mode switch suggestion.",
             "notification_title": "Suggested mode: EXAMEN",
-            "notification_body": "Validation scenario: switch to EXAMEN mode now for focused preparation.",
+            "notification_body": "Switch to EXAMEN mode now for focused preparation — a sprint task was added.",
+            "notification_type": "mode",
             "suggested_mode": "EXAMEN",
+            "notification_cooldown_hours": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_RESOURCE_NUDGE":
@@ -150,8 +205,10 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "SEND_RESOURCE_NUDGE",
             "thought": "Forced validation scenario: resource auto-delivery.",
             "notification_title": "Targeted support resource",
-            "notification_body": "Validation scenario: sending one targeted wellbeing resource.",
+            "notification_body": "Mizan selected one wellbeing resource matched to your current context.",
+            "notification_type": "low_mood_resource",
             "resource_index": 0,
+            "notification_cooldown_hours": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_ESCALATION":
@@ -159,9 +216,13 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "ESCALATE_WELLBEING",
             "thought": "Forced validation scenario: persistent low-mood escalation.",
             "notification_title": "High-priority wellbeing support",
-            "notification_body": "Validation scenario: escalation alert and urgent recovery task.",
+            "notification_body": "Escalation: prioritize recovery now. A commitment and follow-up were scheduled.",
+            "notification_type": "critical_wellbeing",
+            "followup_notification_type": "critical_wellbeing_followup",
             "task_title": "Urgent wellbeing reset + one academic win",
-            "task_description": "Validation task: complete a short wellbeing reset then one focused sprint.",
+            "task_description": "Complete a short wellbeing reset then one focused sprint.",
+            "notification_cooldown_hours": 0,
+            "followup_cooldown_hours": 0,
             "confidence": 1.0,
         }
     if event_type == "FORCE_CHECKIN_REMINDER":
@@ -169,7 +230,9 @@ def _forced_decision_for_event(event_type: str) -> dict | None:
             "action": "SEND_NOTIFICATION",
             "thought": "Forced validation scenario: missing check-in reminder on a busy day.",
             "notification_title": "Morning check-in reminder",
-            "notification_body": "Validation scenario: reminder to complete check-in and adapt the day plan early.",
+            "notification_body": "You have not checked in today. A 2-minute check-in helps Mizan adapt your plan.",
+            "notification_type": "info",
+            "notification_cooldown_hours": 0,
             "confidence": 1.0,
         }
     return None
@@ -199,11 +262,14 @@ def _serialize_run(run: AgentRun) -> AgentTestRunResponse:
 
 
 def _serialize_contract(contract: AgentActionContract) -> AgentContractResponse:
+    trigger_type = contract.run.trigger_type if getattr(contract, "run", None) else None
+    task_title = contract.task.title if getattr(contract, "task", None) else None
     return AgentContractResponse(
         id=str(contract.id),
         student_id=str(contract.student_id),
         run_id=str(contract.run_id),
         task_id=str(contract.task_id) if contract.task_id else None,
+        task_title=task_title,
         contract_text=contract.contract_text,
         adaptive_level=contract.adaptive_level,
         status=contract.status,
@@ -212,6 +278,9 @@ def _serialize_contract(contract: AgentActionContract) -> AgentContractResponse:
         responded_at=contract.responded_at.isoformat() if contract.responded_at else None,
         completed_at=contract.completed_at.isoformat() if contract.completed_at else None,
         followup_sent_at=contract.followup_sent_at.isoformat() if contract.followup_sent_at else None,
+        decline_reason=contract.decline_reason,
+        trigger_type=trigger_type,
+        trigger_label=trigger_label_for(trigger_type),
         created_at=contract.created_at.isoformat(),
     )
 
@@ -246,23 +315,36 @@ async def api_generate_plan(
     return {"plan": plan}
 
 
-@router.post("/chat")
+@router.post("/chat", response_model=ChatResponse)
 @limiter.limit("5/minute")
 async def api_chat_agent(
     request: Request,
     data: ChatRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     student = await get_student_by_user_id(db, current_user.id)
     context = await build_agent_context(db, student.id)
-    response_payload = await chat_with_agent(context, data.message)
+    history = [{"role": t.role, "content": t.content} for t in data.history]
+    response_payload = await chat_with_agent(context, data.message, conversation_history=history)
+    agent_action: AgentActionSummary | None = None
     if response_payload.get("safety_level") != "high":
-        await publish_autonomous_event(
+        run = await publish_autonomous_event(
             db,
-            build_chat_event("TEXT", student_id=student.id, message=data.message),
+            build_chat_event(
+                "TEXT",
+                student_id=student.id,
+                message=data.message,
+                conversation_history=history,
+            ),
         )
-    return response_payload
+        agent_action = AgentActionSummary(**summarize_agent_run_for_client(run))
+    return ChatResponse(
+        response=str(response_payload.get("response", "")),
+        safety_level=response_payload.get("safety_level"),
+        safety_action=response_payload.get("safety_action"),
+        agent_action=agent_action,
+    )
 
 
 @router.get("/contracts", response_model=list[AgentContractResponse])
@@ -295,6 +377,7 @@ async def api_respond_agent_contract(
         student_id=student.id,
         contract_id=_parse_uuid_or_422(contract_id),
         accepted=data.accepted,
+        decline_reason=data.decline_reason,
     )
     return _serialize_contract(contract)
 
@@ -302,6 +385,7 @@ async def api_respond_agent_contract(
 @router.post("/contracts/{contract_id}/complete", response_model=AgentContractResponse)
 async def api_complete_agent_contract(
     contract_id: str,
+    data: AgentContractCompleteRequest = AgentContractCompleteRequest(),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -310,6 +394,7 @@ async def api_complete_agent_contract(
         db,
         student_id=student.id,
         contract_id=_parse_uuid_or_422(contract_id),
+        from_pending=data.from_pending,
     )
     return _serialize_contract(contract)
 

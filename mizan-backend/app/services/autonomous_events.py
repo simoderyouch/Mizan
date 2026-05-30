@@ -28,7 +28,13 @@ def build_checkin_event(period: str, *, student_id: UUID, checkin_date: date) ->
     )
 
 
-def build_chat_event(channel: str, *, student_id: UUID, message: str) -> AutonomousEvent:
+def build_chat_event(
+    channel: str,
+    *,
+    student_id: UUID,
+    message: str,
+    conversation_history: list[dict] | None = None,
+) -> AutonomousEvent:
     normalized_channel = channel.upper().strip()
     now = datetime.now(timezone.utc)
     cleaned_message = str(message or "").strip()
@@ -36,13 +42,22 @@ def build_chat_event(channel: str, *, student_id: UUID, message: str) -> Autonom
     fingerprint = hashlib.sha1(fingerprint_source.encode("utf-8")).hexdigest()[:12]
     event_type = f"{normalized_channel}_CHAT_MESSAGE"
     idempotency_key = f"{event_type}:{student_id}:{int(now.timestamp() * 1000)}:{fingerprint}"
+    history: list[dict] = []
+    for turn in conversation_history or []:
+        if not isinstance(turn, dict):
+            continue
+        role = str(turn.get("role", "")).strip().lower()
+        content = str(turn.get("content", "")).strip()
+        if role in {"user", "assistant"} and content:
+            history.append({"role": role, "content": content[:2000]})
     return AutonomousEvent(
         event_type=event_type,
         student_id=student_id,
         idempotency_key=idempotency_key,
         payload={
             "channel": normalized_channel,
-            "message": cleaned_message[:500],
+            "message": cleaned_message[:2000],
+            "conversation_history": history[-24:],
             "timestamp": now.isoformat(),
         },
     )
@@ -70,6 +85,8 @@ def build_metadata_update_event(
     metadata_type: str,
     operation: str,
     class_id: UUID,
+    content_details: dict | None = None,
+    force_decision: dict | None = None,
 ) -> AutonomousEvent:
     now = datetime.now(timezone.utc)
     normalized_type = str(metadata_type or "GENERIC").upper().strip()
@@ -78,18 +95,23 @@ def build_metadata_update_event(
     idempotency_key = (
         f"{event_type}:{normalized_operation}:{class_id}:{student_id}:{int(now.timestamp() * 1000)}"
     )
+    payload: dict = {
+        "metadata_type": normalized_type,
+        "operation": normalized_operation,
+        "class_id": str(class_id),
+        "timestamp": now.isoformat(),
+    }
+    if isinstance(content_details, dict) and content_details:
+        payload["content_details"] = content_details
+    if isinstance(force_decision, dict) and force_decision:
+        payload["force_decision"] = force_decision
     return AutonomousEvent(
         event_type=event_type,
         student_id=student_id,
         idempotency_key=idempotency_key,
-        payload={
-            "metadata_type": normalized_type,
-            "operation": normalized_operation,
-            "class_id": str(class_id),
-            "timestamp": now.isoformat(),
-        },
+        payload=payload,
     )
 
 
-async def publish_autonomous_event(db: AsyncSession, event: AutonomousEvent) -> None:
-    await run_react_cycle(db, event)
+async def publish_autonomous_event(db: AsyncSession, event: AutonomousEvent):
+    return await run_react_cycle(db, event)

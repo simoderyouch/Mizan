@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, Square, Loader2, Volume2, Send, ChevronDown, ChevronUp, EyeOff } from "lucide-react";
+import { Mic, Square, Loader2, Volume2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChatTaskSuggestions } from "@/components/agent/chat/chat-task-suggestions";
 import { useToast } from "@/components/ui/use-toast";
-import { API_ORIGIN, authApi, getApiErrorMessage, tasksApi, voiceApi } from "@/lib/api";
+import { BACKEND_ORIGIN, authApi, getApiErrorMessage, tasksApi, voiceApi } from "@/lib/api";
 import { AgentChatMessage, ChatTaskSuggestion } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { RichTextMessage } from "@/components/agent/rich-text-message";
@@ -168,7 +169,7 @@ export function VoiceCompanion() {
     if (typeof window === "undefined") return "";
     const token = window.localStorage.getItem("mizan_access_token");
     if (!token) return "";
-    const wsBase = API_ORIGIN.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
+    const wsBase = BACKEND_ORIGIN.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
     return `${wsBase}/api/v1/voice/realtime?token=${encodeURIComponent(token)}`;
   };
 
@@ -519,6 +520,14 @@ export function VoiceCompanion() {
       historyRef.current = [...historyRef.current, assistantMessage];
       setHistory(historyRef.current);
       setLastMessage(chatRes.agent_text);
+      if (chatRes.agent_action?.took_action && chatRes.agent_action.message) {
+        toast({
+          title: "Mizan took action",
+          description: chatRes.agent_action.message,
+          variant: "success",
+        });
+        window.dispatchEvent(new CustomEvent("mizan:notifications:refresh"));
+      }
       try {
         const suggestionRes = await tasksApi.suggestFromChat({
           user_message: userText,
@@ -554,7 +563,7 @@ export function VoiceCompanion() {
       console.error("Voice interaction error:", err);
       toast({
         title: "Error",
-        description: "Voice interaction failed.",
+        description: getApiErrorMessage(err, "Voice interaction failed."),
         variant: "destructive",
       });
     } finally {
@@ -738,8 +747,6 @@ export function VoiceCompanion() {
     }
   };
 
-  const selectedSuggestionCount = taskSuggestions.filter((_, idx) => selectedSuggestions[idx] ?? true).length;
-
   const selectAllSuggestions = () => {
     const next: Record<number, boolean> = {};
     taskSuggestions.forEach((_, idx) => {
@@ -756,244 +763,159 @@ export function VoiceCompanion() {
     setSelectedSuggestions(next);
   };
 
-  return (
-    <div className="relative flex flex-col items-center justify-start pt-2 pb-8 px-8 space-y-8 w-full max-w-2xl mx-auto">
-      <div className="flex gap-3">
-        <button
-          onClick={() => void switchCaptureMode("record")}
-          disabled={isProcessing}
-          className={cn(
-            "h-10 px-4 rounded-full border text-sm transition-colors",
-            preferredCaptureMode === "record"
-              ? "bg-primary text-white border-primary"
-              : "bg-surface text-on-surface border-border hover:bg-surface/80"
-          )}
-        >
-          Mic mode (Primary)
-        </button>
-        <button
-          onClick={() => void switchCaptureMode("realtime")}
-          disabled={isProcessing}
-          className={cn(
-            "h-10 px-4 rounded-full border text-sm transition-colors",
-            preferredCaptureMode === "realtime"
-              ? "bg-primary text-white border-primary"
-              : "bg-surface text-on-surface border-border hover:bg-surface/80"
-          )}
-        >
-          Realtime mode
-        </button>
-      </div>
+  const statusLabel = (() => {
+    if (sessionActive && isRecording) {
+      return captureMode === "realtime" ? "Listening…" : "Recording…";
+    }
+    if (isProcessing) return "Thinking…";
+    if (isPlaying) return "Speaking…";
+    if (sessionActive && captureMode === "realtime") return "Connecting…";
+    if (sessionActive) return "Ready — tap record when you want to answer";
+    return "Press Start to begin";
+  })();
 
-      <div className="relative flex items-center justify-center h-48 w-48">
-        {/* Ambient Orb */}
-        <div 
-          className={cn(
-            "absolute inset-0 rounded-full blur-2xl transition-all duration-700 ease-in-out",
-            isRecording ? "bg-red-500/30 scale-110 animate-pulse" :
-            isPlaying ? "bg-primary/40 scale-125 animate-pulse-soft" : 
-            isProcessing ? "bg-blue-400/30 scale-100 animate-spin-slow" :
-            "bg-primary/20 scale-100"
-          )}
-        />
-        <div 
-          className={cn(
-            "relative flex items-center justify-center h-32 w-32 rounded-full border border-white/10 backdrop-blur-md shadow-xl transition-all duration-500",
-            isRecording ? "gradient-primary bg-red-50" : "bg-surface/80"
-          )}
-        >
-          {isProcessing ? (
-            <Loader2 className="h-10 w-10 text-primary animate-spin" />
-          ) : isPlaying ? (
-            <Volume2 className="h-10 w-10 text-primary animate-pulse" />
-          ) : (
-            <Mic className={cn("h-10 w-10", isRecording ? "text-red-500" : "text-primary/80")} />
-          )}
+  const statusTone =
+    sessionActive && isRecording
+      ? "text-red-600"
+      : isProcessing || isPlaying
+        ? "text-primary"
+        : "text-on-surface-variant";
+
+  return (
+    <div className="flex flex-col w-full min-h-0 flex-1">
+      <div className="flex-1 flex flex-col items-center gap-5 py-2 sm:py-4 min-h-0">
+        <div className="relative flex items-center justify-center h-36 w-36 sm:h-40 sm:w-40 shrink-0">
+          <div
+            className={cn(
+              "absolute inset-2 rounded-full transition-all duration-500",
+              isRecording && "bg-red-400/20 animate-pulse",
+              isPlaying && "bg-primary/25 animate-pulse-soft",
+              isProcessing && "bg-primary/15",
+              !isRecording && !isPlaying && !isProcessing && "bg-primary/10"
+            )}
+          />
+          <div
+            className={cn(
+              "relative flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-full border-2 transition-all",
+              isRecording
+                ? "border-red-300/80 bg-red-50 text-red-600"
+                : "border-primary/20 bg-surface-container-lowest text-primary"
+            )}
+          >
+            {isProcessing ? (
+              <Loader2 className="h-9 w-9 animate-spin" />
+            ) : isPlaying ? (
+              <Volume2 className="h-9 w-9" />
+            ) : (
+              <Mic className={cn("h-9 w-9", isRecording && "text-red-600")} />
+            )}
+          </div>
+        </div>
+
+        <p className={cn("text-sm font-medium text-center", statusTone)}>{statusLabel}</p>
+
+        {(draftTranscript || lastMessage) && (
+          <div className="w-full max-w-lg rounded-xl border border-outline-variant/12 bg-surface-container-lowest p-4 space-y-3 max-h-48 overflow-y-auto">
+            {draftTranscript ? (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant mb-1">
+                  You said
+                </p>
+                <p className="text-sm text-on-surface leading-relaxed">{draftTranscript}</p>
+              </div>
+            ) : null}
+            {lastMessage && !isRecording ? (
+              <div className={draftTranscript ? "pt-3 border-t border-outline-variant/10" : ""}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant mb-1">
+                  Mizan
+                </p>
+                <div className="text-sm text-on-surface">
+                  <RichTextMessage content={lastMessage} />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        <div className="w-full max-w-lg">
+          <ChatTaskSuggestions
+            suggestions={taskSuggestions}
+            selected={selectedSuggestions}
+            collapsed={taskPreviewCollapsed}
+            hidden={taskPreviewHidden}
+            creating={creatingTasks}
+            onToggleSelected={(idx, checked) =>
+              setSelectedSuggestions((prev) => ({ ...prev, [idx]: checked }))
+            }
+            onSelectAll={selectAllSuggestions}
+            onClearSelection={clearSuggestionsSelection}
+            onCreate={() => void createTasksFromSuggestions()}
+            onCollapse={setTaskPreviewCollapsed}
+            onHide={() => setTaskPreviewHidden(true)}
+            onShow={() => setTaskPreviewHidden(false)}
+          />
         </div>
       </div>
 
-      <div className="text-center space-y-2 min-h-[4rem]">
-        {sessionActive && isRecording ? (
-          <p className="text-red-500 font-medium animate-pulse text-sm">
-            {captureMode === "realtime" ? "Listening in Mistral realtime..." : "Recording your answer..."}
-          </p>
-        ) : isProcessing ? (
-          <p className="text-primary font-medium animate-pulse text-sm">Mizan is thinking...</p>
-        ) : isPlaying ? (
-          <p className="text-primary font-medium animate-pulse-soft text-sm">Mizan is speaking...</p>
-        ) : sessionActive && captureMode === "realtime" ? (
-          <p className="text-on-surface-variant text-sm">Reconnecting realtime listening...</p>
-        ) : sessionActive ? (
-          <p className="text-on-surface-variant text-sm">Mic mode ready. Press Start answer to speak.</p>
-        ) : (
-          <p className="text-on-surface-variant text-sm">
-            Press Start to begin ({preferredCaptureMode === "realtime" ? "Mistral realtime auto-send" : "mic mode (primary)"}).
-          </p>
-        )}
-        {lastMessage && !isRecording && !draftTranscript && (
-          <div className="text-xs text-on-surface-variant/80 max-w-xs mx-auto line-clamp-2 text-left">
-            <RichTextMessage content={lastMessage} className="[&_p]:inline" />
-          </div>
-        )}
-      </div>
-
-       {taskSuggestions.length > 0 && !taskPreviewHidden && (
-                <div className="mb-3">
-                  {!taskPreviewCollapsed ? (
-                    <div className="border border-2 bg-white/90 rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div>
-                          <p className="font-semibold">Proposed tasks</p>
-                          <p className="text-xs text-on-surface-variant">Select what you want to validate and create.</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">
-                            {selectedSuggestionCount}/{taskSuggestions.length} selected
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setTaskPreviewCollapsed(true)}
-                            className="h-8 w-8 rounded-full"
-                            aria-label="Collapse task preview"
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setTaskPreviewHidden(true)}
-                            className="h-8 w-8 rounded-full"
-                            aria-label="Hide task preview"
-                          >
-                            <EyeOff className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-1">
-                        {taskSuggestions.map((suggestion, idx) => (
-                          <label
-                            key={`${suggestion.title}-${idx}`}
-                            className="group flex items-start gap-3 text-sm rounded-lg border bg-surface p-3 hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedSuggestions[idx] ?? true}
-                              onChange={(e) => setSelectedSuggestions((prev) => ({ ...prev, [idx]: e.target.checked }))}
-                              className="mt-1 h-4 w-4 accent-primary"
-                            />
-                            <span className="flex-1 min-w-0">
-                              <span className="block font-medium text-on-surface leading-snug">{suggestion.title}</span>
-                              {suggestion.description ? (
-                                <span className="block text-xs text-on-surface-variant mt-0.5 line-clamp-2">{suggestion.description}</span>
-                              ) : null}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={selectAllSuggestions}
-                          >
-                            Select all
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={clearSuggestionsSelection}
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => void createTasksFromSuggestions()}
-                          disabled={creatingTasks || selectedSuggestionCount === 0}
-                        >
-                          {creatingTasks ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                          Validate and create selected tasks
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex justify-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-2 bg-white/90 px-3 py-2 shadow-sm">
-                        <span className="text-sm font-medium">Proposed tasks ({selectedSuggestionCount}/{taskSuggestions.length})</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setTaskPreviewCollapsed(false)}
-                          className="h-8 w-8 rounded-full"
-                          aria-label="Expand task preview"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {taskSuggestions.length > 0 && taskPreviewHidden && (
-                <div className="mb-3 flex justify-center">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setTaskPreviewHidden(false)}
-                    className="rounded-full bg-white/90"
-                  >
-                    Show proposed tasks ({taskSuggestions.length})
-                  </Button>
-                </div>
-              )}
-
-      <div className="flex gap-4">
-        {!sessionActive ? (
-          <button
-            onClick={() => void startConversation()}
-            disabled={isProcessing}
-            className="h-14 px-6 rounded-full gradient-primary text-white flex items-center gap-2 justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            <Mic className="h-5 w-5" />
-            Start
-          </button>
-        ) : (
-          <>
-            {captureMode === "record" && !isRecording ? (
-              <button
-                onClick={() => void startRecorderCapture()}
-                disabled={isProcessing}
-                className="h-14 px-6 rounded-full gradient-primary text-white flex items-center gap-2 justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+      <div className="shrink-0 border-t border-outline-variant/10 pt-4 mt-2">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          {!sessionActive ? (
+            <Button
+              type="button"
+              size="lg"
+              className="h-11 rounded-xl gradient-primary text-on-primary px-6"
+              disabled={isProcessing}
+              onClick={() => void startConversation()}
+            >
+              <Mic className="h-4 w-4 mr-2" />
+              Start session
+            </Button>
+          ) : (
+            <>
+              {captureMode === "record" && !isRecording ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  className="h-11 rounded-xl gradient-primary text-on-primary px-5"
+                  disabled={isProcessing}
+                  onClick={() => void startRecorderCapture()}
+                >
+                  <Mic className="h-4 w-4 mr-2" />
+                  Record answer
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="lg"
+                variant="secondary"
+                className="h-11 rounded-xl px-5"
+                disabled={
+                  isProcessing ||
+                  (captureMode === "record" && !isRecording) ||
+                  (captureMode === "realtime" && !draftTranscript.trim())
+                }
+                onClick={() => void sendCurrentTranscript()}
               >
-                <Mic className="h-5 w-5" />
-                Start answer
-              </button>
-            ) : null}
-            <button
-              onClick={() => void sendCurrentTranscript()}
-              disabled={
-                isProcessing ||
-                (captureMode === "record" && !isRecording) ||
-                (captureMode === "realtime" && !draftTranscript.trim())
-              }
-              className="h-14 px-6 rounded-full bg-primary hover:bg-primary/90 text-white flex items-center gap-2 justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-            >
-              {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-              Send
-            </button>
-            <button
-              onClick={() => void stopConversation()}
-              className="h-14 px-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center gap-2 justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-            >
-              <Square className="h-5 w-5 fill-current" />
-              Stop
-            </button>
-          </>
-        )}
+                {isProcessing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Send
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                variant="destructive"
+                className="h-11 rounded-xl px-5"
+                onClick={() => void stopConversation()}
+              >
+                <Square className="h-4 w-4 mr-2 fill-current" />
+                End
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

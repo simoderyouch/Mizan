@@ -18,6 +18,9 @@ export type CheckinTargetField = "mood_score" | "sleep_hours" | "plan_completed"
 export type ResourceType = "VIDEO" | "ARTICLE" | "EXERCISE";
 export type Mode = "REVISION" | "EXAMEN" | "PROJET" | "REPOS" | "SPORT" | "COURS";
 
+/** Phase 1: source flag – tells the client whether questions came from LLM or fallback */
+export type QuestionSource = "llm" | "fallback";
+
 export interface ApiMessageResponse {
   message: string;
 }
@@ -378,6 +381,8 @@ export interface PersonalizedCheckinQuestionsResponse {
   period: CheckinPeriod;
   mode: CheckinQuestionMode;
   questions: CheckinQuestion[];
+  /** Phase 1: indicates whether questions came from LLM or static fallback */
+  source?: QuestionSource;
 }
 
 // Goals
@@ -721,6 +726,7 @@ export interface VoiceChatResponse {
   agent_audio_base64: string;
   safety_level?: "none" | "high";
   safety_action?: "human_support_recommended";
+  agent_action?: AgentActionSummary | null;
 }
 
 
@@ -734,10 +740,26 @@ export interface AgentPlanResponse {
   plan: string;
 }
 
+export interface AgentActionSummary {
+  run_id?: string | null;
+  status?: string | null;
+  action?: string | null;
+  took_action?: boolean;
+  skipped?: boolean;
+  message?: string | null;
+  skip_reason?: string | null;
+  actions?: string[];
+  notification_id?: string | null;
+  task_id?: string | null;
+  contract_id?: string | null;
+  thought?: string | null;
+}
+
 export interface AgentChatResponse {
   response: string;
   safety_level?: "none" | "high";
   safety_action?: "human_support_recommended";
+  agent_action?: AgentActionSummary | null;
 }
 
 export interface AgentTestDecision {
@@ -775,9 +797,10 @@ export interface AgentActionContract {
   task_id?: UUID | null;
   contract_text: string;
   adaptive_level: "standard" | "gentle" | "micro" | string;
-  status: "pending" | "accepted" | "declined" | "completed" | string;
+  status: "pending" | "accepted" | "declined" | "completed" | "expired" | string;
   due_at: string;
   followup_at: string;
+  decline_reason?: string | null;
   responded_at?: string | null;
   completed_at?: string | null;
   followup_sent_at?: string | null;

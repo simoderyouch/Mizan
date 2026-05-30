@@ -1,10 +1,12 @@
 # Pydantic schemas for students — StudentResponse, ScheduleCreate, ExamCreate, ProjectCreate
 # app/schemas/student.py
 from datetime import date, datetime, time
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.mode import ModeSessionResponse
 
 
 class StudentResponse(BaseModel):
@@ -75,5 +77,18 @@ class ProjectResponse(BaseModel):
     subject: str
     due_date: date
     members: List[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StudentContextResponse(BaseModel):
+    student: StudentResponse
+    today_schedule: List[ScheduleResponse]
+    weekly_schedule: List[ScheduleResponse]
+    upcoming_exams: List[ExamResponse]
+    active_projects: List[ProjectResponse]
+    current_mode: Optional[ModeSessionResponse] = None
+    has_morning_checkin: bool = False
+    has_evening_checkin: bool = False
 
     model_config = ConfigDict(from_attributes=True)

@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { authApi, studentsApi } from "@/lib/api";
+import { authApi, clearSessionTokens, getApiStatus, studentsApi } from "@/lib/api";
 import type { Student, TokenResponse } from "@/lib/types";
 
 interface AuthState {
@@ -23,14 +23,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [student, setStudent] = useState<Student | null>(null);
   const router = useRouter();
 
-  const fetchStudent = useCallback(async () => {
+  const fetchStudent = useCallback(async (): Promise<boolean> => {
+    const token = localStorage.getItem("mizan_access_token");
+    if (!token) {
+      setIsAuthenticated(false);
+      setStudent(null);
+      return false;
+    }
+
     try {
+      const account = await authApi.me();
+      const role = String(account.role ?? "").toUpperCase();
+      if (role !== "STUDENT") {
+        clearSessionTokens();
+        setIsAuthenticated(false);
+        setStudent(null);
+        throw new Error("Ce compte est administrateur. Connectez-vous via /admin/login.");
+      }
+
       const data = await studentsApi.me();
       setStudent(data);
       setIsAuthenticated(true);
-    } catch {
-      setIsAuthenticated(false);
+      return true;
+    } catch (err: unknown) {
+      const status = getApiStatus(err);
       setStudent(null);
+      if (status === 401 || status === 403 || status === 404) {
+        clearSessionTokens();
+        setIsAuthenticated(false);
+        return false;
+      }
+      // Network / 5xx: keep tokens in storage but do not unlock the app shell
+      setIsAuthenticated(false);
+      return false;
     }
   }, []);
 
@@ -68,15 +93,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string) => {
       const tokens = await authApi.login({ email, password });
       setTokens(tokens);
-      await fetchStudent();
+
+      const loaded = await fetchStudent();
+      if (!loaded) {
+        clearSessionTokens();
+        setIsAuthenticated(false);
+        throw new Error("Profil étudiant introuvable pour ce compte.");
+      }
+
       router.push("/dashboard");
     },
     [setTokens, fetchStudent, router]
   );
 
   const logout = useCallback(() => {
-    localStorage.removeItem("mizan_access_token");
-    localStorage.removeItem("mizan_refresh_token");
+    clearSessionTokens();
     setIsAuthenticated(false);
     setStudent(null);
     router.push("/login");

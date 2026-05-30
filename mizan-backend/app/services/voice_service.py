@@ -215,7 +215,7 @@ def _validate_transcriptions(
 async def get_questions_for_student(db: AsyncSession, student_id: UUID, period: str) -> List[dict]:
     period = _normalize_period(period)
     context = await build_agent_context(db, student_id)
-    generated = await generate_personalized_questions(context, period, "voice")
+    generated, source = await generate_personalized_questions(context, period, "voice")
     questions: list[dict] = []
     for idx, item in enumerate(generated):
         if not isinstance(item, dict):
@@ -386,6 +386,124 @@ async def text_to_speech(text: str) -> bytes:
         ) from exc
 
 
+def _audio_suffix_for_stt(content_type: str | None, file_name: str | None) -> str:
+    name = (file_name or "").lower()
+    if "." in name:
+        ext = name.rsplit(".", 1)[-1]
+        if ext in {"webm", "wav", "mp3", "m4a", "ogg", "opus", "mp4", "aac", "oga"}:
+            return f".{ext}"
+    ct = (content_type or "").split(";", 1)[0].strip().lower()
+    by_type = {
+        "audio/webm": ".webm",
+        "video/webm": ".webm",
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+        "audio/mpeg": ".mp3",
+        "audio/mp4": ".m4a",
+        "audio/ogg": ".ogg",
+        "audio/opus": ".opus",
+    }
+    return by_type.get(ct, ".webm")
+
+
+def _normalize_audio_for_stt(
+    audio_bytes: bytes,
+    content_type: str | None,
+    file_name: str | None,
+) -> tuple[bytes, str, str]:
+    """Browser MediaRecorder often yields WebM/Opus; Voxtral is more reliable with 16 kHz mono WAV."""
+    ffmpeg_binary = shutil.which("ffmpeg")
+    suffix = _audio_suffix_for_stt(content_type, file_name)
+    fallback_ct = (content_type or "audio/webm").split(";", 1)[0].strip() or "audio/webm"
+    fallback_name = (file_name or "audio.webm").strip() or "audio.webm"
+
+    if not ffmpeg_binary:
+        logger.warning("ffmpeg not found; sending raw audio to STT (%s)", suffix)
+        return audio_bytes, fallback_ct, fallback_name
+
+    if suffix == ".wav" and len(audio_bytes) >= 4096:
+        return audio_bytes, "audio/wav", fallback_name if fallback_name.endswith(".wav") else "audio.wav"
+
+    input_path: str | None = None
+    output_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as input_file:
+            input_file.write(audio_bytes)
+            input_path = input_file.name
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as output_file:
+            output_path = output_file.name
+
+        command = [
+            ffmpeg_binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            input_path,
+            "-af",
+            "highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11",
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            "-c:a",
+            "pcm_s16le",
+            output_path,
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "ffmpeg conversion failed").strip()
+            logger.warning("STT audio normalize failed (%s): %s", suffix, detail)
+            return audio_bytes, fallback_ct, fallback_name
+
+        with open(output_path, "rb") as wav_file:
+            wav_bytes = wav_file.read()
+
+        if len(wav_bytes) < 4096:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Audio recording is too short. Please speak for at least 2 seconds and try again.",
+            )
+        return wav_bytes, "audio/wav", "audio.wav"
+    finally:
+        if input_path and os.path.exists(input_path):
+            os.remove(input_path)
+        if output_path and os.path.exists(output_path):
+            os.remove(output_path)
+
+
+def _extract_transcription_text(transcription: Any) -> str:
+    text = str(getattr(transcription, "text", "")).strip()
+    if text:
+        return text
+    segments = getattr(transcription, "segments", None) or []
+    parts: list[str] = []
+    for segment in segments:
+        segment_text = str(getattr(segment, "text", "") or "").strip()
+        if segment_text:
+            parts.append(segment_text)
+    return " ".join(parts).strip()
+
+
+def _extract_transcription_text_from_payload(payload: dict[str, Any]) -> str:
+    text = str(payload.get("text", "")).strip()
+    if text:
+        return text
+    text = str(payload.get("transcript", "")).strip()
+    if text:
+        return text
+    parts: list[str] = []
+    for segment in payload.get("segments") or []:
+        if not isinstance(segment, dict):
+            continue
+        segment_text = str(segment.get("text", "")).strip()
+        if segment_text:
+            parts.append(segment_text)
+    return " ".join(parts).strip()
+
+
 async def speech_to_text(
     audio_bytes: bytes,
     file_name: str | None = None,
@@ -393,7 +511,7 @@ async def speech_to_text(
 ) -> str:
     if not audio_bytes:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Audio file is empty")
-    if len(audio_bytes) < 2048:
+    if len(audio_bytes) < 1024:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Audio recording is too short. Please speak a bit longer and try again.",
@@ -404,8 +522,9 @@ async def speech_to_text(
             detail="Voice transcription is not configured on the server",
         )
 
-    normalized_content_type = (content_type or "audio/webm").split(";", 1)[0].strip() or "audio/webm"
-    normalized_file_name = (file_name or "audio.webm").strip() or "audio.webm"
+    stt_bytes, normalized_content_type, normalized_file_name = _normalize_audio_for_stt(
+        audio_bytes, content_type, file_name
+    )
 
     async def _transcribe(language: str | None) -> tuple[str | None, str | None]:
         sdk_error: str | None = None
@@ -415,7 +534,7 @@ async def speech_to_text(
             client = Mistral(api_key=settings.MISTRAL_API_KEY)
             file_payload = MistralFile(
                 file_name=normalized_file_name,
-                content=audio_bytes,
+                content=stt_bytes,
                 content_type=normalized_content_type,
             )
             kwargs: dict[str, Any] = {
@@ -426,7 +545,7 @@ async def speech_to_text(
             if language:
                 kwargs["language"] = language
             transcription = await asyncio.to_thread(client.audio.transcriptions.complete, **kwargs)
-            text = str(getattr(transcription, "text", "")).strip()
+            text = _extract_transcription_text(transcription)
             if text:
                 return text, None
             sdk_error = "empty transcription response"
@@ -442,7 +561,7 @@ async def speech_to_text(
                     "https://api.mistral.ai/v1/audio/transcriptions",
                     headers={"Authorization": f"Bearer {settings.MISTRAL_API_KEY}"},
                     data=data,
-                    files={"file": (normalized_file_name, audio_bytes, normalized_content_type)},
+                    files={"file": (normalized_file_name, stt_bytes, normalized_content_type)},
                 )
         except Exception as exc:
             return None, f"request failed: {exc}"
@@ -460,26 +579,31 @@ async def speech_to_text(
             return None, combined
 
         payload = response.json()
-        text = str((payload or {}).get("text", "")).strip()
-        if not text:
-            text = str((payload or {}).get("transcript", "")).strip()
+        text = _extract_transcription_text_from_payload(payload if isinstance(payload, dict) else {})
         if not text:
             return None, f"empty transcription response (SDK: {sdk_error})" if sdk_error else "empty transcription response"
         return text, None
 
+    empty_detail = (
+        "No speech detected. Speak clearly for at least 2 seconds near the microphone, then try again."
+    )
+
     try:
-        text, err = await _transcribe(settings.MISTRAL_STT_LANGUAGE or None)
+        # Try without forced language first — forced `fr` can yield empty text on noisy/short clips.
+        text, err = await _transcribe(None)
         if text:
             return text
 
-        # Retry without forced language to improve compatibility for mixed/unknown audio.
-        retry_text, retry_err = await _transcribe(None)
+        retry_text, retry_err = await _transcribe(settings.MISTRAL_STT_LANGUAGE or None)
         if retry_text:
             return retry_text
 
+        combined = retry_err or err or "unknown error"
+        if "empty transcription" in combined.lower():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=empty_detail)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Voice transcription provider error: {retry_err or err or 'unknown error'}",
+            detail=f"Voice transcription provider error: {combined}",
         )
     except HTTPException:
         raise
@@ -992,15 +1116,25 @@ Instructions:
         messages.append({"role": msg.role, "content": msg.content})
     messages.append({"role": "user", "content": data.user_text})
 
-    response = await asyncio.to_thread(
-        client.chat.complete,
-        model=settings.MISTRAL_MODEL,
-        messages=messages,
-    )
-    
-    agent_text = _extract_chat_response_text(response) or "Sorry, I didn't fully understand. Could you rephrase that?"
-    
-    audio_bytes = await text_to_speech(agent_text)
-    audio_base64 = base64.b64encode(audio_bytes).decode("utf-8") if audio_bytes else ""
-    
+    try:
+        response = await asyncio.to_thread(
+            client.chat.complete,
+            model=settings.MISTRAL_MODEL,
+            messages=messages,
+        )
+        agent_text = _extract_chat_response_text(response) or "Sorry, I didn't fully understand. Could you rephrase that?"
+    except Exception as exc:
+        logger.error("Voice chat LLM failed: %s", exc)
+        agent_text = (
+            "I'm having trouble connecting to the AI service right now. "
+            "You can still use check-ins and tasks while we recover."
+        )
+
+    audio_base64 = ""
+    try:
+        audio_bytes = await text_to_speech(agent_text)
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8") if audio_bytes else ""
+    except Exception as exc:
+        logger.warning("Voice chat TTS skipped (text reply still returned): %s", exc)
+
     return VoiceChatResponse(agent_text=agent_text, agent_audio_base64=audio_base64, safety_level="none")

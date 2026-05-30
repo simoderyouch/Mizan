@@ -267,9 +267,12 @@ export interface ProjectUpdatePayload {
 export interface StudentContext {
   student: Student;
   today_schedule: ScheduleEntry[];
+  weekly_schedule?: ScheduleEntry[];
   upcoming_exams: Exam[];
   active_projects: Project[];
   current_mode?: ModeSession | null;
+  has_morning_checkin?: boolean;
+  has_evening_checkin?: boolean;
 }
 
 // Check-ins
@@ -555,6 +558,7 @@ export interface StudentDashboard {
   active_goals_count: number;
   upcoming_exams: Exam[];
   today_schedule: ScheduleEntry[];
+  weekly_schedule?: ScheduleEntry[];
   mood_trend: MoodGraphPoint[];
 }
 
@@ -721,6 +725,7 @@ export interface VoiceChatResponse {
   agent_audio_base64: string;
   safety_level?: "none" | "high";
   safety_action?: "human_support_recommended";
+  agent_action?: AgentActionSummary | null;
 }
 
 
@@ -734,10 +739,26 @@ export interface AgentPlanResponse {
   plan: string;
 }
 
+export interface AgentActionSummary {
+  run_id?: string | null;
+  status?: string | null;
+  action?: string | null;
+  took_action?: boolean;
+  skipped?: boolean;
+  message?: string | null;
+  skip_reason?: string | null;
+  actions?: string[];
+  notification_id?: string | null;
+  task_id?: string | null;
+  contract_id?: string | null;
+  thought?: string | null;
+}
+
 export interface AgentChatResponse {
   response: string;
   safety_level?: "none" | "high";
   safety_action?: "human_support_recommended";
+  agent_action?: AgentActionSummary | null;
 }
 
 export interface AgentTestDecision {
@@ -773,13 +794,17 @@ export interface AgentActionContract {
   student_id: UUID;
   run_id: UUID;
   task_id?: UUID | null;
+  task_title?: string | null;
   contract_text: string;
   adaptive_level: "standard" | "gentle" | "micro" | string;
-  status: "pending" | "accepted" | "declined" | "completed" | string;
+  status: "pending" | "accepted" | "declined" | "completed" | "expired" | string;
   due_at: string;
   followup_at: string;
   responded_at?: string | null;
   completed_at?: string | null;
   followup_sent_at?: string | null;
+  decline_reason?: string | null;
+  trigger_type?: string | null;
+  trigger_label?: string | null;
   created_at: string;
 }

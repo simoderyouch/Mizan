@@ -122,15 +122,14 @@ def _normalize_dynamic_answers(
 
 
 async def get_morning_briefing(db: AsyncSession, student_id: UUID) -> dict:
+    from app.utils.weekday import matches_today_weekday
+
     today = date.today()
-    day_name = today.strftime("%A")
     three_days_later = today + timedelta(days=3)
     five_days_later = today + timedelta(days=5)
 
-    schedule_res = await db.execute(
-        select(Schedule).where(and_(Schedule.student_id == student_id, Schedule.day_of_week == day_name))
-    )
-    schedules = schedule_res.scalars().all()
+    schedule_res = await db.execute(select(Schedule).where(Schedule.student_id == student_id))
+    schedules = [s for s in schedule_res.scalars().all() if matches_today_weekday(s.day_of_week, today)]
 
     exam_res = await db.execute(
         select(Exam).where(and_(Exam.student_id == student_id, Exam.exam_date >= today, Exam.exam_date <= three_days_later))
@@ -193,7 +192,7 @@ async def get_personalized_checkin_questions(
     student_id: UUID,
     period: Literal["MORNING", "EVENING"],
     mode: Literal["qcm", "voice"],
-) -> list[dict]:
+) -> tuple[list[dict], Literal["llm", "fallback"]]:
     context = await build_agent_context(db, student_id)
     return await generate_personalized_questions(context, period, mode)
 

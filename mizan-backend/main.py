@@ -56,7 +56,8 @@ app = FastAPI(
     title="Mizan API",
     description="Backend for Mizan - Student Wellbeing AI Platform",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 app.state.limiter = limiter

@@ -5,6 +5,143 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const BULLET_PREFIX = /^[\d\-*•.)]+\s*/;
+
+export type DailyFocusItem = {
+  id: string;
+  label: string;
+  text: string;
+};
+
+function truncateWords(text: string, maxWords = 5): string {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return words.length > maxWords ? words.slice(0, maxWords).join(" ") : text.trim();
+}
+
+export type DailyFocusSource = {
+  todaySchedule: Array<{ subject: string; start_time: string; end_time: string }>;
+  upcomingExams: Array<{ subject: string; exam_date: string }>;
+  activeProjects?: Array<{ name: string; due_date: string }>;
+  hasMorningCheckin?: boolean;
+  hasEveningCheckin?: boolean;
+  currentMode?: { mode: string } | null;
+  activeGoalsCount?: number;
+};
+
+/** Daily focus card: up to 3 short lines from dashboard data. */
+export function buildDailyFocusItems(source: DailyFocusSource): DailyFocusItem[] {
+  const items: DailyFocusItem[] = [];
+  const nextClass = source.todaySchedule[0];
+
+  if (nextClass) {
+    items.push({
+      id: "class",
+      label: "Next class",
+      text: truncateWords(
+        `${nextClass.subject} ${formatTimeString(nextClass.start_time)}-${formatTimeString(nextClass.end_time)}`
+      ),
+    });
+  } else {
+    items.push({
+      id: "class",
+      label: "Schedule",
+      text: "No class scheduled today",
+    });
+  }
+
+  const nearestExam = source.upcomingExams[0];
+  const nearestProject = source.activeProjects
+    ?.slice()
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0];
+
+  if (nearestExam) {
+    items.push({
+      id: "exam",
+      label: "Exam",
+      text: truncateWords(`${nearestExam.subject} ${formatDateShort(nearestExam.exam_date)}`),
+    });
+  } else if (nearestProject) {
+    items.push({
+      id: "project",
+      label: "Project",
+      text: truncateWords(`${nearestProject.name} ${formatDateShort(nearestProject.due_date)}`),
+    });
+  } else {
+    items.push({
+      id: "deadline",
+      label: "Deadlines",
+      text: "No upcoming exams or projects",
+    });
+  }
+
+  const morning = source.hasMorningCheckin;
+  const evening = source.hasEveningCheckin;
+  if (!morning || !evening) {
+    const pending =
+      !morning && !evening
+        ? "Morning and evening rituals pending"
+        : !morning
+          ? "Morning ritual still pending"
+          : "Evening ritual still pending";
+    items.push({ id: "ritual", label: "Rituals", text: truncateWords(pending) });
+  } else if (source.currentMode) {
+    items.push({
+      id: "mode",
+      label: "Focus mode",
+      text: truncateWords(`${modeLabel(source.currentMode.mode)} active now`),
+    });
+  } else if ((source.activeGoalsCount ?? 0) > 0) {
+    items.push({
+      id: "goals",
+      label: "Goals",
+      text: truncateWords(`${source.activeGoalsCount} active goals tracked`),
+    });
+  } else {
+    items.push({
+      id: "ritual",
+      label: "Rituals",
+      text: "Morning and evening complete",
+    });
+  }
+
+  return items.slice(0, 3);
+}
+
+export function computeReadinessScore(input: {
+  avgMood?: number;
+  checkinProgress: number;
+  hasActiveMode: boolean;
+  pendingContracts?: number;
+}): number {
+  const readinessFromMood = input.avgMood ? Math.round(input.avgMood * 20) : 0;
+  const pending = input.pendingContracts ?? 0;
+  return Math.max(
+    35,
+    Math.min(
+      100,
+      Math.round(
+        (readinessFromMood > 0 ? readinessFromMood : 55) * 0.6 +
+          input.checkinProgress * 0.25 +
+          (input.hasActiveMode ? 10 : 0) +
+          (pending === 0 ? 5 : 0)
+      )
+    )
+  );
+}
+
+/** Daily focus card: up to 3 lines, ~5 words each. */
+export function formatDailyPlanBullets(plan: string, maxLines = 3, maxWords = 5): string[] {
+  return plan
+    .split("\n")
+    .map((line) => line.replace(BULLET_PREFIX, "").trim())
+    .filter(Boolean)
+    .slice(0, maxLines)
+    .map((line) => {
+      const words = line.split(/\s+/).filter(Boolean);
+      return words.length > maxWords ? words.slice(0, maxWords).join(" ") : line;
+    });
+}
+
 /* ── Date / Time Formatters ── */
 const EN_MONTHS = [
   "january", "february", "march", "april", "may", "june",

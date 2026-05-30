@@ -17,6 +17,21 @@ from app.schemas.student import StudentCreateAdmin, StudentUpdateAdmin
 from app.core.permissions import ensure_admin_school_scope
 from app.utils.project_members import normalize_project_members
 from app.utils.csv_parser import parse_trombi_csv
+from app.utils.weekday import matches_today_weekday
+
+_WEEKDAY_ORDER = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+
+
+def _weekday_sort_key(day_of_week: str) -> int:
+    return _WEEKDAY_ORDER.get((day_of_week or "").strip().lower(), 99)
 
 
 async def _verify_class_exists(db: AsyncSession, class_id: UUID) -> None:
@@ -163,6 +178,9 @@ async def create_student_admin(db: AsyncSession, current_user: User, data: Stude
     # Sync class content to the new student
     from app.services.class_content_autonomy import sync_class_content_to_new_student
     await sync_class_content_to_new_student(db, student.id, data.class_id, current_user)
+    from app.services.class_project_service import refresh_class_project_member_rosters
+
+    await refresh_class_project_member_rosters(db, data.class_id)
     await db.commit()
 
     return await _get_student_with_relations_by_id(db, student.id)
@@ -186,10 +204,12 @@ async def update_student_admin(db: AsyncSession, current_user: User, student_id:
     _ensure_admin_scope(current_user, await _get_school_id_for_student(db, student_id))
     student = await _get_student_with_relations_by_id(db, student_id)
 
+    class_changed = False
     if data.class_id is not None and data.class_id != student.class_id:
         _ensure_admin_scope(current_user, await _get_school_id_for_class(db, data.class_id))
         await _verify_class_exists(db, data.class_id)
         student.class_id = data.class_id
+        class_changed = True
 
     if data.first_name is not None:
         student.first_name = data.first_name
@@ -206,6 +226,14 @@ async def update_student_admin(db: AsyncSession, current_user: User, student_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Student with this CNE already exists")
         student.cne = data.cne
 
+    if class_changed:
+        from app.services.class_content_autonomy import sync_class_content_to_new_student
+
+        await sync_class_content_to_new_student(db, student.id, student.class_id, current_user)
+        from app.services.class_project_service import refresh_class_project_member_rosters
+
+        await refresh_class_project_member_rosters(db, student.class_id)
+
     await db.commit()
     return await _get_student_with_relations_by_id(db, student_id)
 
@@ -213,11 +241,16 @@ async def update_student_admin(db: AsyncSession, current_user: User, student_id:
 async def delete_student_admin(db: AsyncSession, current_user: User, student_id: UUID) -> None:
     _ensure_admin_scope(current_user, await _get_school_id_for_student(db, student_id))
     student = await _get_student_with_relations_by_id(db, student_id)
+    class_id = student.class_id
     user = student.user
     await db.delete(student)
     if user:
         await db.delete(user)
     await db.commit()
+    if class_id:
+        from app.services.class_project_service import refresh_class_project_member_rosters
+
+        await refresh_class_project_member_rosters(db, class_id)
 
 
 async def get_student_by_user_id(db: AsyncSession, user_id: UUID) -> Student:
@@ -249,26 +282,30 @@ async def get_student_basic_by_user_id(db: AsyncSession, user_id: UUID) -> Stude
 
 async def get_student_context(db: AsyncSession, student_id: UUID) -> Dict[str, Any]:
     today = date.today()
-    day_name = today.strftime("%A")
-    upcoming_limit = today + timedelta(days=3)
 
     student_result = await db.execute(select(Student).where(Student.id == student_id))
     student = student_result.scalars().first()
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-    schedule_result = await db.execute(
-        select(Schedule).where(and_(Schedule.student_id == student_id, Schedule.day_of_week == day_name))
+    weekly_result = await db.execute(select(Schedule).where(Schedule.student_id == student_id))
+    weekly_schedules = sorted(
+        weekly_result.scalars().all(),
+        key=lambda s: (_weekday_sort_key(s.day_of_week), s.start_time),
     )
-    schedules = schedule_result.scalars().all()
+    schedules = [s for s in weekly_schedules if matches_today_weekday(s.day_of_week, today)]
 
     exam_result = await db.execute(
-        select(Exam).where(and_(Exam.student_id == student_id, Exam.exam_date >= today, Exam.exam_date <= upcoming_limit))
+        select(Exam)
+        .where(and_(Exam.student_id == student_id, Exam.exam_date >= today))
+        .order_by(Exam.exam_date.asc(), Exam.start_time.asc())
     )
     exams = exam_result.scalars().all()
 
     project_result = await db.execute(
-        select(Project).where(and_(Project.student_id == student_id, Project.due_date >= today))
+        select(Project)
+        .where(and_(Project.student_id == student_id, Project.due_date >= today))
+        .order_by(Project.due_date.asc())
     )
     projects = project_result.scalars().all()
 
@@ -277,10 +314,18 @@ async def get_student_context(db: AsyncSession, student_id: UUID) -> Dict[str, A
     )
     active_mode = mode_result.scalars().first()
 
+    from app.services.checkin_service import has_evening_checkin_today, has_morning_checkin_today
+
+    has_morning = await has_morning_checkin_today(db, student_id)
+    has_evening = await has_evening_checkin_today(db, student_id)
+
     return {
         "student": student,
         "today_schedule": schedules,
+        "weekly_schedule": weekly_schedules,
         "upcoming_exams": exams,
+        "has_morning_checkin": has_morning,
+        "has_evening_checkin": has_evening,
         "active_projects": [
             {
                 "id": project.id,

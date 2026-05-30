@@ -24,7 +24,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, "Incorrect email or password."));
+      setError(getApiErrorMessage(err, "Email ou mot de passe incorrect."));
     } finally {
       setLoading(false);
     }

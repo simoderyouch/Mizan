@@ -33,6 +33,7 @@ from app.services.task_service import (
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
+@router.get("", response_model=List[TaskResponse], include_in_schema=False)
 @router.get("/", response_model=List[TaskResponse])
 async def api_list_tasks(
     status: TaskStatus | None = Query(default=None),
@@ -54,6 +55,7 @@ async def api_create_tasks(
     return await create_tasks(db, student.id, payload)
 
 
+@router.post("", response_model=TaskResponse, include_in_schema=False)
 @router.post("/", response_model=TaskResponse)
 async def api_create_task(
     payload: TaskCreate,

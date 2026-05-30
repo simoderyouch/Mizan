@@ -1,4 +1,11 @@
 from app.services.agent_policy import deterministic_decision, parse_decision
+from app.services.agent_orchestrator_service import (
+    _build_priority_focus_from_context,
+    _chat_help_intent_decision,
+    _conversation_from_payload,
+    _format_conversation_transcript,
+    _sanitize_chat_llm_decision,
+)
 
 
 def test_parse_decision_sanitizes_unknown_action_and_mode() -> None:
@@ -120,6 +127,122 @@ def test_deterministic_decision_metadata_exam_create_triggers_exam_action() -> N
     assert decision["action"] == "SEND_AND_CREATE"
     assert decision["notification_type"] == "metadata_exam_major"
     assert decision["notification_cooldown_hours"] == 0
+
+
+def test_chat_help_intent_triggers_send_and_create() -> None:
+    context = {
+        "upcoming_exams": [
+            {"subject": "Python", "exam_date": "2026-06-03", "days_until": 4, "room": "A1"}
+        ],
+        "stress_indicators": {
+            "has_exam_tomorrow": False,
+            "consecutive_low_mood_days": 0,
+            "current_mood_score": 4,
+        },
+    }
+    signals = {"requested_help_or_distress": True, "severe_distress": False}
+    decision = _chat_help_intent_decision(context, signals)
+    assert decision is not None
+    assert decision["action"] == "SEND_AND_CREATE"
+    assert decision.get("cooldown_bypass") is True
+    assert "Python" in decision["task_title"]
+    assert decision.get("task_dedup_hours") == 8
+
+
+def test_build_priority_focus_uses_nearest_exam() -> None:
+    focus = _build_priority_focus_from_context(
+        {
+            "upcoming_exams": [
+                {"subject": "Algorithms", "exam_date": "2026-06-20", "days_until": 21, "room": "B"},
+                {"subject": "Python", "exam_date": "2026-06-03", "days_until": 4, "room": "A1"},
+            ],
+            "stress_indicators": {},
+        }
+    )
+    assert "Python" in focus["task_title"]
+    assert focus["suggested_mode"] in {"EXAMEN", "REVISION"}
+
+
+def test_build_priority_focus_prefers_project_when_message_says_project() -> None:
+    focus = _build_priority_focus_from_context(
+        {
+            "upcoming_exams": [
+                {"subject": "Python", "exam_date": "2026-06-03", "days_until": 4, "room": "A1"},
+            ],
+            "upcoming_projects": [
+                {
+                    "name": "Web App",
+                    "subject": "GL",
+                    "due_date": "2026-06-15",
+                    "days_until": 16,
+                },
+            ],
+            "stress_indicators": {},
+        },
+        message="I need help with my project deadline this week",
+    )
+    assert "Web App" in focus["task_title"]
+    assert "Python" not in focus["task_title"]
+    assert focus["focus_kind"] == "project"
+
+
+def test_build_priority_focus_respects_message_subject_over_nearest_exam() -> None:
+    focus = _build_priority_focus_from_context(
+        {
+            "upcoming_exams": [
+                {"subject": "Algorithms", "exam_date": "2026-06-20", "days_until": 21, "room": "B"},
+                {"subject": "Python", "exam_date": "2026-06-03", "days_until": 4, "room": "A1"},
+            ],
+            "stress_indicators": {},
+        },
+        message="I'm stressed about the Algorithms exam next week",
+    )
+    assert "Algorithms" in focus["task_title"]
+    assert "Python" not in focus["task_title"]
+
+
+def test_sanitize_chat_llm_preserves_planner_task_title() -> None:
+    decision = _sanitize_chat_llm_decision(
+        {
+            "action": "SEND_AND_CREATE",
+            "task_title": "Web App · project sprint (40 min)",
+            "thought": "Student asked about project.",
+        }
+    )
+    assert decision["task_title"] == "Web App · project sprint (40 min)"
+    assert decision.get("allow_duplicate_tasks") is True
+
+
+def test_sanitize_chat_llm_keeps_none_without_forcing_task() -> None:
+    decision = _sanitize_chat_llm_decision({"action": "NONE", "thought": "Small talk."})
+    assert decision["action"] == "NONE"
+
+
+def test_conversation_from_payload_and_transcript() -> None:
+    payload = {
+        "message": "Help with my project",
+        "conversation_history": [
+            {"role": "user", "content": "I have a project due"},
+            {"role": "assistant", "content": "Let's focus on one milestone."},
+        ],
+    }
+    history = _conversation_from_payload(payload)
+    assert len(history) == 2
+    transcript = _format_conversation_transcript(history, payload["message"])
+    assert "project" in transcript.lower()
+
+
+def test_chat_help_intent_severe_triggers_escalation() -> None:
+    context = {
+        "stress_indicators": {
+            "current_mood_score": 2,
+            "consecutive_low_mood_days": 4,
+        }
+    }
+    signals = {"requested_help_or_distress": True, "severe_distress": True}
+    decision = _chat_help_intent_decision(context, signals)
+    assert decision is not None
+    assert decision["action"] == "ESCALATE_WELLBEING"
 
 
 def test_deterministic_decision_low_sleep_triggers_recovery_action() -> None:

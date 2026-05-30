@@ -40,6 +40,7 @@ class StudentDashboard(BaseModel):
     active_goals_count: int
     upcoming_exams: List[ExamResponse]
     today_schedule: List[ScheduleResponse]
+    weekly_schedule: List[ScheduleResponse] = Field(default_factory=list)
     mood_trend: List[MoodGraphPoint]
 
 
