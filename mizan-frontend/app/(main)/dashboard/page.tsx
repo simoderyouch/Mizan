@@ -43,7 +43,7 @@ export default function DashboardPage() {
   const [studentContext, setStudentContext] = useState<StudentContext | null>(null);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
   const [contracts, setContracts] = useState<AgentActionContract[]>([]);
-  const [pinnedCommitment, setPinnedCommitment] = useState<PinnedCommitment | null>(null);
+  const [pinnedCommitment, setPinnedCommitment] = useState<PinnedCommitment | null>(readPinnedCommitment);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -93,7 +93,6 @@ export default function DashboardPage() {
   }, [fetchData]);
 
   useEffect(() => {
-    setPinnedCommitment(readPinnedCommitment());
     const onPinned = (event: Event) => {
       const detail = (event as CustomEvent<PinnedCommitment | null>).detail;
       setPinnedCommitment(detail ?? readPinnedCommitment());

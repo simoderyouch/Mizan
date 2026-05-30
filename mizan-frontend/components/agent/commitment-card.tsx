@@ -52,6 +52,14 @@ export function CommitmentCard({
 }: CommitmentCardProps) {
   const [countdown, setCountdown] = useState(() => formatCountdown(msUntil(contract.due_at)));
 
+  useEffect(() => {
+    if (variant === "compact" || contract.status !== "pending") return;
+    const tick = () => setCountdown(formatCountdown(msUntil(contract.due_at)));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [contract.due_at, contract.status, variant]);
+
   if (variant === "compact") {
     const when = contract.completed_at ?? contract.responded_at ?? contract.due_at;
     const whenLabel = new Date(when).toLocaleDateString(undefined, {
@@ -81,14 +89,6 @@ export function CommitmentCard({
       </article>
     );
   }
-
-  useEffect(() => {
-    if (contract.status !== "pending") return;
-    const tick = () => setCountdown(formatCountdown(msUntil(contract.due_at)));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [contract.due_at, contract.status]);
 
   const levelHelp =
     ADAPTIVE_LEVEL_HELP[contract.adaptive_level] ?? ADAPTIVE_LEVEL_HELP.standard;
