@@ -1,4 +1,4 @@
-# Mizan
+# Mizan Platform
 
 Mizan is a student wellbeing platform with a FastAPI backend, a Next.js web frontend, and an Expo React Native mobile app.
 
