@@ -12,7 +12,7 @@ done
 echo "Postgres is ready."
 
 echo "Running database migrations..."
-alembic upgrade head
+alembic upgrade heads
 
 echo "Starting backend API..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000

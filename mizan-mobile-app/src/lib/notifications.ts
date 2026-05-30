@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import Constants from "expo-constants";
 
 // Configure how notifications appear when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -48,9 +49,20 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+    const tokenData = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined
+    );
+    if (__DEV__) {
+      console.log("[Mizan] Expo push token:", tokenData.data);
+    }
     return tokenData.data;
-  } catch {
+  } catch (err) {
+    if (__DEV__) {
+      console.warn("[Mizan] Expo push token unavailable:", err);
+    }
     return null;
   }
 }
@@ -80,6 +92,7 @@ export async function showLocalNotification(
       body,
       data: data ?? {},
       sound: "default",
+      ...(Platform.OS === "android" ? { channelId: "default" } : {}),
     },
     trigger: null, // immediate
   });

@@ -1,5 +1,8 @@
+import re
 from collections.abc import Iterable
 from typing import Any
+
+_MEMBER_SPLIT_RE = re.compile(r"[\n,;]+")
 
 
 def normalize_project_members(raw: Any) -> list[str]:
@@ -7,7 +10,18 @@ def normalize_project_members(raw: Any) -> list[str]:
         return []
 
     if isinstance(raw, str):
-        return [item.strip() for item in raw.split(",") if item.strip()]
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for item in _MEMBER_SPLIT_RE.split(raw):
+            cleaned = item.strip()
+            if not cleaned:
+                continue
+            key = cleaned.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            ordered.append(cleaned)
+        return ordered
 
     if isinstance(raw, list):
         return [str(item).strip() for item in raw if str(item).strip()]

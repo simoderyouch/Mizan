@@ -5,13 +5,16 @@ export type AuthStackParamList = {
   Activate: undefined;
   VerifyOtp: { email: string };
   SetPassword: { tempToken: string };
+  ForgotPassword: undefined;
+  VerifyResetOtp: { email: string };
+  ResetPassword: { tempToken: string };
 };
 
 export type TabParamList = {
   Dashboard: undefined;
   Checkin: undefined;
   AgentChatTab: undefined;
-  Tasks: undefined;
+  Tasks: { highlightTaskId?: string } | undefined;
   More: undefined;
 };
 
@@ -27,9 +30,10 @@ export type MainStackParamList = {
   Notifications: undefined;
   Profile: undefined;
   AgentChat: undefined;
-  AgentContracts: undefined;
+  AgentContracts: { highlight?: string } | undefined;
   AgentScenarios: undefined;
   History: undefined;
   WeeklyReport: undefined;
   Goals: undefined;
+  ScheduleWeek: undefined;
 };

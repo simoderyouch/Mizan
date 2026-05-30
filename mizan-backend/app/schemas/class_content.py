@@ -68,7 +68,10 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=1)
     subject: str = Field(min_length=1)
     due_date: date
-    members: List[str] = Field(default_factory=list)
+    members: List[str] = Field(
+        default_factory=list,
+        description="Ignored — team is always the full class roster.",
+    )
 
 
 class ProjectUpdate(BaseModel):

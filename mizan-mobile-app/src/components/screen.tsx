@@ -9,13 +9,16 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Edge, SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing } from "../theme";
+
+export type ScreenVariant = "default" | "tab" | "stack" | "stackBare";
 
 export function Screen({
   children,
   scroll = true,
   padded = true,
+  variant = "default",
   style,
   refreshing = false,
   onRefresh,
@@ -23,13 +26,23 @@ export function Screen({
   children: React.ReactNode;
   scroll?: boolean;
   padded?: boolean;
+  variant?: ScreenVariant;
   style?: StyleProp<ViewStyle>;
   refreshing?: boolean;
   onRefresh?: () => void;
 }) {
-  const contentStyle = [padded && styles.content, style];
+  // Tab / stackBare: no native header — need top inset for the status bar.
+  // stack: native header already handles top inset.
+  const edges: Edge[] =
+    variant === "stack" ? ["left", "right", "bottom"] : ["top", "left", "right"];
+
+  const contentStyle = [
+    padded && styles.content,
+    (variant === "stack" || variant === "stackBare") && styles.contentStack,
+    style,
+  ];
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={styles.safe}>
+    <SafeAreaView edges={edges} style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboard}
@@ -68,6 +81,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+  },
+  contentStack: {
+    paddingTop: spacing.sm,
   },
   scrollBottom: {
     paddingBottom: spacing.xl,

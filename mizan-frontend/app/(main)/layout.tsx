@@ -6,17 +6,20 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import Navbar from "@/components/layout/Navbar";
 import BottomDock from "@/components/layout/BottomDock";
-import NotificationsRealtimeListener from "@/components/notifications/realtime-listener";
+import { NotificationsProvider } from "@/lib/notifications-context";
+import { CheckinModalProvider } from "@/components/checkin/checkin-modal-context";
+import CheckinModal from "@/components/checkin/checkin-modal";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, student } = useAuth();
   const router = useRouter();
+  const sessionReady = isAuthenticated && student !== null;
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !sessionReady) {
       router.replace("/login");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [sessionReady, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -33,16 +36,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     );
   }
 
-  if (!isAuthenticated) return null;
+  if (!sessionReady) return null;
 
   return (
-    <div className="min-h-screen bg-surface">
-      <NotificationsRealtimeListener />
-      <Navbar />
-      <main className="pt-10 pb-28 md:pb-12 px-3 sm:px-4 md:px-6 lg:px-8 w-full max-w-screen-xl mx-auto overflow-x-hidden">
-        {children}
-      </main>
-      <BottomDock />
-    </div>
+    <CheckinModalProvider>
+      <NotificationsProvider>
+        <div className="min-h-screen bg-surface">
+          <Navbar />
+          <main className="pt-10 pb-28 md:pb-12 px-3 sm:px-4 md:px-6 lg:px-8 w-full max-w-screen-xl mx-auto overflow-x-hidden">
+            {children}
+          </main>
+          <BottomDock />
+          <CheckinModal />
+        </div>
+      </NotificationsProvider>
+    </CheckinModalProvider>
   );
 }

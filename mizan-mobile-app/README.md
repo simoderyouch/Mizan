@@ -4,6 +4,12 @@ Expo React Native version of the student-facing Mizan mobile app.
 
 The local Next/PWA experiment is development/test only, ignored by git, and not part of production deployment.
 
+## Improvement plan
+
+Roadmap for LLM check-ins, notification WebSocket fixes, and native UX:
+
+**[STUDENT_APP_PLAN.md](./STUDENT_APP_PLAN.md)**
+
 ## Run
 
 ```bash

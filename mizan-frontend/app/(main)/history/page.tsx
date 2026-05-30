@@ -1,38 +1,52 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { analyticsApi, checkinsApi, getApiErrorMessage } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { MoodGraphPoint, ModeDistribution, MorningCheckinResponse, EveningCheckinResponse } from "@/lib/types";
-import { modeLabel, formatDateShort } from "@/lib/utils";
-import { Loader2, Moon, BookOpen, Sparkles, Sun, ShieldAlert, Target, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell,
+  CartesianGrid,
 } from "recharts";
+import {
+  Activity,
+  CalendarCheck,
+  ChevronRight,
+  Moon,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 
-const CHART_COLORS = ["#005cae", "#4090ff", "#d5e3ff", "#004584", "#7ab8ff", "#002d5a"];
+import { HistoryPeriodTabs } from "@/components/history/history-period-tabs";
+import { HistoryStatCard } from "@/components/history/history-stat-card";
+import { HistoryTimeline, type HistoryTimelineItem } from "@/components/history/history-timeline";
+import { analyticsApi, checkinsApi, getApiErrorMessage } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { ModeDistribution, MoodGraphPoint, MorningCheckinResponse, EveningCheckinResponse } from "@/lib/types";
+import { modeLabel, formatDateShort } from "@/lib/utils";
 
-interface TimelineItem {
-  id: string;
-  type: "morning" | "evening";
-  date: string;
-  time: string;
-  mood_score: number;
-  executive_summary: string | null;
-  detailed_action_plan: string[] | null;
-  detected_risks: string[] | null;
-}
+const CHART_COLORS = ["#005cae", "#4090ff", "#7ab8ff", "#004584", "#d5e3ff", "#002d5a"];
+
+const TOOLTIP_STYLE = {
+  borderRadius: "12px",
+  border: "1px solid rgba(0,0,0,0.06)",
+  boxShadow: "0 8px 24px rgba(28,27,27,0.08)",
+  fontSize: "13px",
+};
 
 export default function HistoryPage() {
   const [days, setDays] = useState(30);
   const [moodData, setMoodData] = useState<MoodGraphPoint[]>([]);
   const [modeData, setModeData] = useState<ModeDistribution[]>([]);
-  const [timelineData, setTimelineData] = useState<TimelineItem[]>([]);
+  const [timelineData, setTimelineData] = useState<HistoryTimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -43,12 +57,12 @@ export default function HistoryPage() {
       const [mood, modes, historyRes] = await Promise.all([
         analyticsApi.mood(days),
         analyticsApi.modes(days),
-        checkinsApi.history(days)
+        checkinsApi.history(days),
       ]);
       setMoodData(mood);
       setModeData(modes);
 
-      const items: TimelineItem[] = [];
+      const items: HistoryTimelineItem[] = [];
       historyRes.morning_checkins.forEach((mc: MorningCheckinResponse) => {
         items.push({
           id: mc.id,
@@ -58,7 +72,7 @@ export default function HistoryPage() {
           mood_score: mc.mood_score,
           executive_summary: mc.executive_summary,
           detailed_action_plan: mc.detailed_action_plan,
-          detected_risks: mc.detected_risks
+          detected_risks: mc.detected_risks,
         });
       });
       historyRes.evening_checkins.forEach((ec: EveningCheckinResponse) => {
@@ -70,21 +84,17 @@ export default function HistoryPage() {
           mood_score: ec.mood_score,
           executive_summary: ec.executive_summary,
           detailed_action_plan: ec.detailed_action_plan,
-          detected_risks: ec.detected_risks
+          detected_risks: ec.detected_risks,
         });
       });
 
-      // Sort desc by date, then by time desc
       items.sort((a, b) => {
         const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-        if (dateDiff === 0) {
-          return b.time.localeCompare(a.time);
-        }
+        if (dateDiff === 0) return b.time.localeCompare(a.time);
         return dateDiff;
       });
 
       setTimelineData(items);
-
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, "Unable to load history."));
     } finally {
@@ -96,45 +106,71 @@ export default function HistoryPage() {
     void fetchData();
   }, [fetchData]);
 
+  const stats = useMemo(() => {
+    const avgMood =
+      moodData.length > 0
+        ? (moodData.reduce((s, p) => s + p.mood_score, 0) / moodData.length).toFixed(1)
+        : "—";
+    const avgSleep =
+      moodData.length > 0
+        ? (moodData.reduce((s, p) => s + p.sleep_hours, 0) / moodData.length).toFixed(1)
+        : "—";
+    const reports = timelineData.filter((t) => t.executive_summary);
+    const latestMood = moodData.length > 0 ? moodData[moodData.length - 1]?.mood_score : null;
+    return {
+      avgMood,
+      avgSleep,
+      checkins: timelineData.length,
+      reports: reports.length,
+      latestMood: latestMood != null ? `${latestMood}/5` : "—",
+      reportItems: reports,
+    };
+  }, [moodData, timelineData]);
+
+  const chartMoodData = moodData.map((p) => ({
+    ...p,
+    dateLabel: formatDateShort(p.date),
+  }));
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="page-enter max-w-5xl mx-auto space-y-6 pb-16">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-80 rounded-2xl" />
       </div>
     );
   }
 
-  const avgMood = moodData.length > 0
-    ? (moodData.reduce((s, p) => s + p.mood_score, 0) / moodData.length).toFixed(1)
-    : "—";
-
-  const avgSleep = moodData.length > 0
-    ? (moodData.reduce((s, p) => s + p.sleep_hours, 0) / moodData.length).toFixed(1)
-    : "—";
-
   return (
-    <div className="page-enter space-y-8 max-w-5xl mx-auto px-1 pb-16">
-      <div>
-        <span className="label-sanctuary text-primary">Mood analytics</span>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mt-1">Your wellbeing journey</h1>
-        <p className="text-on-surface-variant mt-2 max-w-xl">
-          Explore emotional trends and discover your wellbeing patterns.
-        </p>
-      </div>
-
-      {/* Score */}
-      <div className="flex justify-start sm:justify-end">
-        <div className="flex items-center gap-3">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <div className="text-right">
-            <span className="label-sanctuary">Wellbeing score</span>
-            <p className="text-2xl font-bold">{avgMood}/5</p>
+    <div className="page-enter max-w-5xl mx-auto space-y-6 pb-16">
+      <header className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Progress</p>
+            <h1 className="text-2xl sm:text-3xl font-bold mt-1">Your wellbeing journey</h1>
+            <p className="text-sm text-on-surface-variant mt-2 max-w-xl">
+              Mood, sleep, focus modes, and AI check-in summaries over time.
+            </p>
           </div>
+          <HistoryPeriodTabs days={days} onChange={setDays} />
         </div>
-      </div>
 
-      {error && (
-        <Card>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <HistoryStatCard label="Avg mood" value={stats.avgMood} hint={`Last ${days} days`} icon={Sparkles} />
+          <HistoryStatCard label="Avg sleep" value={stats.avgSleep === "—" ? "—" : `${stats.avgSleep}h`} icon={Moon} />
+          <HistoryStatCard label="Check-ins" value={String(stats.checkins)} hint="Morning + evening" icon={CalendarCheck} />
+          <HistoryStatCard label="Latest mood" value={stats.latestMood} icon={TrendingUp} />
+        </div>
+      </header>
+
+      {error ? (
+        <Card className="!rounded-xl">
           <CardContent className="!p-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-red-600">{error}</p>
             <Button variant="secondary" size="sm" onClick={() => void fetchData()}>
@@ -142,114 +178,95 @@ export default function HistoryPage() {
             </Button>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Mood Chart */}
-        <Card className="lg:col-span-2 shadow-sanctuary-sm">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-              <h3 className="text-lg sm:text-xl font-bold">Emotional intensity</h3>
-              <Tabs value={days.toString()} onValueChange={(v) => setDays(parseInt(v))}>
-                <TabsList className="w-full sm:w-auto h-10">
-                  <TabsTrigger value="7">7j</TabsTrigger>
-                  <TabsTrigger value="14">14j</TabsTrigger>
-                  <TabsTrigger value="30">30j</TabsTrigger>
-                </TabsList>
-              </Tabs>
+      <Card className="!rounded-2xl border-outline-variant/15 shadow-sm overflow-hidden">
+        <CardContent className="!p-4 sm:!p-6">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h2 className="text-base font-bold">Mood & sleep</h2>
+            <div className="flex items-center gap-3 text-xs text-on-surface-variant">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-[#005cae]" />
+                Mood
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-0.5 w-3 border-t-2 border-dashed border-[#7ab8ff]" />
+                Sleep
+              </span>
             </div>
-
-            {moodData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={moodData.map((p) => ({ ...p, dateLabel: formatDateShort(p.date) }))}>
-                  <XAxis dataKey="dateLabel" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[0, 5]} tick={{ fontSize: 10 }} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 8px 24px rgba(28,27,27,0.08)" }}
-                    formatter={(v: number, name: string) =>
-                      name === "mood_score" ? [`${v}/5`, "Mood"] : [`${v}h`, "Sleep"]
-                    }
-                  />
-                  <Line type="monotone" dataKey="mood_score" stroke="#005cae" strokeWidth={3} dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="sleep_hours" stroke="#d5e3ff" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[250px] flex items-center justify-center text-on-surface-variant">
-                No data yet.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Insights Sidebar */}
-        <div className="space-y-4">
-          <div className="sanctuary-card-subtle bg-surface-container-lowest">
-            <div className="flex items-center gap-2 mb-2">
-              <Moon className="h-4 w-4 text-primary" />
-              <h4 className="font-bold text-sm">Sleep</h4>
-            </div>
-            <p className="text-xs text-on-surface-variant">
-              Average <strong className="text-primary">{avgSleep}h</strong> over this period.
-            </p>
           </div>
-          <div className="sanctuary-card-subtle bg-surface-container-lowest">
-            <div className="flex items-center gap-2 mb-2">
-              <BookOpen className="h-4 w-4 text-primary" />
-              <h4 className="font-bold text-sm">Study</h4>
-            </div>
-            <p className="text-xs text-on-surface-variant">
-              Track how your sessions affect your mood.
-            </p>
-          </div>
-          <div className="sanctuary-card-subtle bg-surface-container-lowest">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h4 className="font-bold text-sm">Recovery</h4>
-            </div>
-            <p className="text-xs text-on-surface-variant">
-              Active breaks improve your concentration.
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* Mode Distribution Section */}
-      {modeData.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="shadow-sanctuary-sm">
-            <CardContent className="p-6 h-full">
-              <h3 className="text-xl font-bold mb-6">Mood palette</h3>
-              <div className="flex justify-center mt-[3rem] align-center  gap-4 sm:gap-6 flex-wrap">
+          {moodData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartMoodData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} tickMargin={8} />
+                <YAxis domain={[0, 5]} tick={{ fontSize: 11 }} width={28} />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  formatter={(v: number, name: string) =>
+                    name === "mood_score" ? [`${v}/5`, "Mood"] : [`${v}h`, "Sleep"]
+                  }
+                />
+                <Line type="monotone" dataKey="mood_score" stroke="#005cae" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey="sleep_hours" stroke="#7ab8ff" strokeWidth={2} strokeDasharray="6 4" dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[260px] flex flex-col items-center justify-center gap-3 text-center px-4">
+              <Activity className="h-10 w-10 text-primary/30" />
+              <p className="text-sm text-on-surface-variant">No mood data for this period yet.</p>
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/dashboard#wellbeing">Start a check-in</Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {modeData.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="!rounded-2xl border-outline-variant/15 shadow-sm">
+            <CardContent className="!p-4 sm:!p-6">
+              <h2 className="text-base font-bold mb-4">Focus modes</h2>
+              <div className="flex flex-wrap justify-center gap-4 sm:gap-6 py-2">
                 {modeData.map((md, i) => (
-                  <div key={md.mode} className="text-center group">
+                  <div key={md.mode} className="text-center w-24">
                     <div
-                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 transition-transform group-hover:scale-110"
-                      style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + "20", color: CHART_COLORS[i % CHART_COLORS.length] }}
+                      className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full text-sm font-bold tabular-nums"
+                      style={{
+                        backgroundColor: `${CHART_COLORS[i % CHART_COLORS.length]}18`,
+                        color: CHART_COLORS[i % CHART_COLORS.length],
+                      }}
                     >
-                      <span className="text-sm font-bold">{Math.round(md.percentage)}%</span>
+                      {Math.round(md.percentage)}%
                     </div>
-                    <span className="label-sanctuary text-[10px]">{modeLabel(md.mode)}</span>
+                    <p className="text-xs font-medium text-on-surface leading-tight">{modeLabel(md.mode)}</p>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">{md.total_minutes} min</p>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sanctuary-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold">Weekly report</h3>
-                <Link href="/history/weekly">
-                  <Button variant="ghost" size="sm" className="px-2 sm:px-3 text-primary">View all</Button>
-                </Link>
+          <Card className="!rounded-2xl border-outline-variant/15 shadow-sm">
+            <CardContent className="!p-4 sm:!p-6">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <h2 className="text-base font-bold">Time by mode</h2>
+                <Button variant="ghost" size="sm" className="h-8 text-primary" asChild>
+                  <Link href="/history/weekly">
+                    Weekly report
+                    <ChevronRight className="h-4 w-4 ml-0.5" />
+                  </Link>
+                </Button>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={modeData.map((md) => ({ name: modeLabel(md.mode), minutes: md.total_minutes }))}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} />
-                  <Bar dataKey="minutes" radius={[8, 8, 0, 0]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-12} textAnchor="end" height={48} />
+                  <YAxis tick={{ fontSize: 10 }} width={32} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v} min`, "Focus"]} />
+                  <Bar dataKey="minutes" radius={[6, 6, 0, 0]} maxBarSize={48}>
                     {modeData.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
@@ -259,131 +276,24 @@ export default function HistoryPage() {
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : null}
 
-      {/* STRATEGY DOCUMENTS TIMELINE */}
-      {timelineData.length > 0 && <TimelineReports data={timelineData.filter((t) => t.executive_summary)} />}
-    </div>
-  );
-}
-
-function TimelineReports({ data }: { data: TimelineItem[] }) {
-  const [openItemId, setOpenItemId] = useState<string | null>(data.length > 0 ? data[0].id : null);
-
-  const toggleItem = (id: string) => {
-    setOpenItemId((prev) => (prev === id ? null : id));
-  };
-
-  return (
-    <div className="mt-12">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-bold flex items-center">
-          <Sparkles className="h-6 w-6 mr-3 text-primary" />
-          Your strategic reports
-        </h2>
-      </div>
-
-      <div className="relative border-l border-outline-variant/40 ml-4 pl-6 space-y-6">
-        {data.map((item) => {
-          const isOpen = openItemId === item.id;
-          const Icon = item.type === "morning" ? Sun : Moon;
-          return (
-            <div key={item.id} className="relative group">
-              {/* Timeline Dot */}
-              <div
-                className={`absolute w-3 h-3 rounded-full -left-[1.95rem] top-6 border-[3px] border-surface ${item.type === "morning" ? "bg-amber-400" : "bg-blue-400"
-                  }`}
-              />
-
-              <button
-                onClick={() => toggleItem(item.id)}
-                className="w-full text-left focus:outline-none"
-              >
-                <Card
-                  className={`overflow-hidden border border-outline-variant/30 shadow-sm transition-all duration-300 ${isOpen ? "bg-surface/60 shadow-md border-outline-variant/50" : "bg-surface/50 hover:bg-surface hover:shadow-md"
-                    }`}
-                >
-                  <div className="p-4 sm:p-5 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`p-2 rounded-full ${item.type === "morning"
-                          ? "bg-amber-100/50 text-amber-600 dark:bg-amber-900/20"
-                          : "bg-blue-100/50 text-blue-600 dark:bg-blue-900/20"
-                          }`}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-on-surface">
-                          {item.type === "morning" ? "Morning check-in" : "Evening review"}
-                        </h3>
-                        <p className="text-xs text-on-surface-variant font-medium mt-0.5">
-                          {formatDateShort(item.date)} • {item.time ? item.time.substring(0, 5) : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight
-                      className={`h-5 w-5 text-on-surface-variant transition-transform duration-300 ${isOpen ? "rotate-90" : ""
-                        }`}
-                    />
-                  </div>
-                </Card>
-              </button>
-
-              {isOpen && (
-                <div className="mt-3 overflow-hidden page-enter">
-                  <Card className="border border-outline-variant/30 bg-surface shadow-sm rounded-2xl">
-                    <CardContent className="p-5 sm:p-6 space-y-6">
-                      {/* Summary */}
-                      <div>
-                        <p className="text-sm sm:text-base text-on-surface leading-relaxed whitespace-pre-wrap">
-                          {item.executive_summary}
-                        </p>
-                      </div>
-
-                      {/* Action Plan */}
-                      {item.detailed_action_plan && item.detailed_action_plan.length > 0 && (
-                        <div className="pt-4 border-t border-outline-variant/20">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant flex items-center mb-3">
-                            <Target className="h-4 w-4 mr-2 text-primary" />
-                            Extracted action plan
-                          </h4>
-                          <ul className="space-y-2.5">
-                            {item.detailed_action_plan.map((action, idx) => (
-                              <li key={idx} className="text-sm text-on-surface flex items-start gap-3">
-                                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
-                                <span>{action}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Risks */}
-                      {item.detected_risks && item.detected_risks.length > 0 && (
-                        <div className="pt-4 border-t border-outline-variant/20">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center mb-3">
-                            <ShieldAlert className="h-4 w-4 mr-2" />
-                            Risk signals
-                          </h4>
-                          <ul className="space-y-2.5">
-                            {item.detected_risks.map((risk, idx) => (
-                              <li key={idx} className="text-sm text-red-600  flex items-start gap-3">
-                                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-red-600/60 shrink-0" />
-                                <span>{risk}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {stats.reportItems.length > 0 ? (
+        <HistoryTimeline data={stats.reportItems} />
+      ) : timelineData.length === 0 ? (
+        <Card className="!rounded-2xl">
+          <CardContent className="!p-8 text-center">
+            <Sparkles className="h-10 w-10 text-primary/40 mx-auto mb-3" />
+            <p className="text-sm font-semibold">No check-ins in this period</p>
+            <p className="text-sm text-on-surface-variant mt-2 mb-4">
+              Complete morning or evening rituals to build your history here.
+            </p>
+            <Button className="gradient-primary text-on-primary" asChild>
+              <Link href="/dashboard#wellbeing">Open wellbeing check-in</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

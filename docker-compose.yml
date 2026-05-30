@@ -30,9 +30,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - ./mizan-backend/.env
     environment:
       APP_ENV: ${APP_ENV:-development}
-      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-https://mizan.example.com}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001}
       ENABLE_SCHEDULER: ${ENABLE_SCHEDULER:-true}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-mizan}
       USE_LOCAL_DATABASE: "false"
@@ -42,14 +44,11 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       SMTP_SERVER: ${SMTP_SERVER:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       AUTH_RATE_LIMIT_MAX_REQUESTS: ${AUTH_RATE_LIMIT_MAX_REQUESTS:-10}
       AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-60}
       MAX_IMAGE_UPLOAD_BYTES: ${MAX_IMAGE_UPLOAD_BYTES:-5242880}
       MAX_AUDIO_UPLOAD_BYTES: ${MAX_AUDIO_UPLOAD_BYTES:-26214400}
       MAX_CSV_UPLOAD_BYTES: ${MAX_CSV_UPLOAD_BYTES:-5242880}
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       MISTRAL_MODEL: ${MISTRAL_MODEL:-mistral-large-latest}
       MISTRAL_STT_MODEL: ${MISTRAL_STT_MODEL:-voxtral-mini-latest}
       MISTRAL_STT_LANGUAGE: ${MISTRAL_STT_LANGUAGE:-fr}
@@ -61,14 +60,11 @@ services:
       MISTRAL_TTS_VOICE_ID: ${MISTRAL_TTS_VOICE_ID:-}
       MISTRAL_TTS_VOICE: ${MISTRAL_TTS_VOICE:-}
       MISTRAL_TTS_OUTPUT_GAIN: ${MISTRAL_TTS_OUTPUT_GAIN:-2.0}
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
     ports:
-      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     expose:
       - "8000"
 

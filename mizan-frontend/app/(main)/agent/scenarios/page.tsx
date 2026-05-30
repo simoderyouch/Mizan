@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDateShort, formatTime } from "@/lib/utils";
 
+/** Full autonomous demo: escalation → reset sprint → mode stabilization */
+const DEMO_PACK = [
+  "FORCE_HIGH_STRESS_BURNOUT_RISK",
+  "FORCE_AFTER_LUNCH_RESET",
+  "FORCE_HIGH_STRESS_OVERDUE_SPIRAL",
+] as const;
+
 const SCENARIOS = [
   {
     event_type: "FORCE_HIGH_STRESS_EXAM_CRUNCH",
@@ -54,6 +61,7 @@ const SCENARIOS = [
 export default function AgentScenariosPage() {
   const [runs, setRuns] = useState<AgentTestRun[]>([]);
   const [busyScenario, setBusyScenario] = useState<string | null>(null);
+  const [runningDemoPack, setRunningDemoPack] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -72,6 +80,26 @@ export default function AgentScenariosPage() {
   useEffect(() => {
     void loadRuns();
   }, []);
+
+  const runDemoPack = async () => {
+    try {
+      setRunningDemoPack(true);
+      setError("");
+      for (const eventType of DEMO_PACK) {
+        setBusyScenario(eventType);
+        await agentApi.triggerTestRun({
+          event_type: eventType,
+          note: "Autonomous demo pack — presentation",
+        });
+      }
+      await loadRuns(false);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not run the full demo pack."));
+    } finally {
+      setBusyScenario(null);
+      setRunningDemoPack(false);
+    }
+  };
 
   const runScenario = async (eventType: string) => {
     try {
@@ -96,9 +124,28 @@ export default function AgentScenariosPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Scenario Lab</h1>
         <p className="text-sm text-on-surface-variant mt-1">
-          Run 5 autonomous scenarios and inspect outcomes in real frontend.
+          Trigger Mizan&apos;s autonomous brain (ReAct cycle): notifications, tasks, and commitments.
         </p>
       </div>
+
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="space-y-3 !p-4">
+          <h2 className="font-semibold">Full autonomous demo (recommended)</h2>
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            Runs 3 scenarios in order: <strong>burnout escalation</strong> (critical alert + task + follow-up),
+            <strong> after-lunch reset</strong> (notification + focus task), <strong> overdue spiral</strong> (mode switch + commitment).
+          </p>
+          <p className="text-xs text-on-surface-variant">
+            Then check: bell → <strong>/tasks</strong> → <strong>Commitments</strong> → <strong>/notifications</strong>.
+          </p>
+          <Button
+            onClick={() => void runDemoPack()}
+            disabled={runningDemoPack || busyScenario !== null}
+          >
+            {runningDemoPack ? "Running demo pack…" : "Run full demo pack"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {error ? (
         <Card>

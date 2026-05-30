@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/lib/auth";
-import { authApi, filesApi, getApiErrorMessage } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
+import { GraduationCap, BookOpen, CalendarDays, Lock, LogOut, Loader2, Check, Shield } from "lucide-react";
+
+import { ProfileDetailCard } from "@/components/profile/profile-detail-card";
+import { ProfileHero } from "@/components/profile/profile-hero";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, LogOut, Loader2, Check, User, Trash2, Camera } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { authApi, filesApi, getApiErrorMessage } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
-import Image from "next/image";
+import { formatDateShort } from "@/lib/utils";
 
 export default function ProfilePage() {
   const { student, logout, refreshStudent } = useAuth();
@@ -21,6 +23,8 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoRemoving, setPhotoRemoving] = useState(false);
+
+  const memberSince = student?.created_at ? formatDateShort(student.created_at) : "—";
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,130 +92,113 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="page-enter space-y-8 max-w-2xl mx-auto px-1">
-      <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
+    <div className="page-enter mx-auto max-w-2xl space-y-6 px-1 pb-8">
+      <header className="space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Account</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">My profile</h1>
+        <p className="text-sm text-on-surface-variant">
+          Your photo, school details, and sign-in settings in one place.
+        </p>
+      </header>
 
-      {/* Student Info */}
-      <Card>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <label className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer">
-              {student?.photo_url ? (
-                <Image src={student.photo_url} alt="photo" width={80} height={80} className="w-full h-full object-cover" unoptimized />
-              ) : (
-                <User className="h-8 w-8 text-primary" />
-              )}
-              <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center justify-center">
-                {photoUploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-white" />
-                ) : (
-                  <Camera className="h-4 w-4 text-white" />
-                )}
-              </div>
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                className="hidden"
-                onChange={(e) => void handlePhotoUpload(e)}
-                disabled={photoUploading || photoRemoving}
-              />
-            </label>
-            <div className="min-w-0">
-              <h2 className="text-xl font-bold">
-                {student?.first_name} {student?.last_name}
-              </h2>
-              <p className="text-sm text-on-surface-variant">CNE : {student?.cne}</p>
-              {student?.phone && (
-                <p className="text-sm text-on-surface-variant">{student.phone}</p>
-              )}
-            </div>
-            {student?.photo_url && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="self-start sm:self-center h-8 w-8 text-on-surface-variant hover:text-red-600"
-                onClick={() => void handlePhotoDelete()}
-                disabled={photoUploading || photoRemoving}
-                 title="Delete photo"
-              >
-                {photoRemoving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </Button>
-            )}
+      <ProfileHero
+        student={student}
+        photoUploading={photoUploading}
+        photoRemoving={photoRemoving}
+        onPhotoChange={(e) => void handlePhotoUpload(e)}
+        onPhotoDelete={() => void handlePhotoDelete()}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <ProfileDetailCard
+          label="Class"
+          value={student?.class_name || "—"}
+          icon={GraduationCap}
+        />
+        <ProfileDetailCard
+          label="Program"
+          value={student?.filiere_name || "—"}
+          icon={BookOpen}
+        />
+        <ProfileDetailCard
+          label="Member since"
+          value={memberSince}
+          icon={CalendarDays}
+          className="sm:col-span-2"
+        />
+      </div>
+
+      <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Lock className="h-4 w-4" />
           </div>
-
-          <p className="text-xs text-on-surface-variant mt-2">
-            Hover the photo to edit it. Formats: JPG/PNG, max size 2MB.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-            <div className="sanctuary-card-subtle !p-4">
-              <span className="label-sanctuary">Class</span>
-              <p className="font-semibold text-sm mt-1">{student?.class_name || "—"}</p>
-            </div>
-            <div className="sanctuary-card-subtle !p-4">
-              <span className="label-sanctuary">Program</span>
-              <p className="font-semibold text-sm mt-1">{student?.filiere_name || "—"}</p>
-            </div>
+          <div>
+            <h3 className="font-semibold text-on-surface">Password</h3>
+            <p className="text-xs text-on-surface-variant">Use at least 8 characters.</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Change Password */}
-      <Card>
-        <CardContent>
-          <h3 className="font-bold mb-4 flex items-center gap-2">
-            <Lock className="h-4 w-4 text-primary" />
-            Change password
-          </h3>
+        {passwordSuccess ? (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <Check className="h-4 w-4 shrink-0" />
+            Password updated successfully.
+          </div>
+        ) : null}
 
-          {passwordSuccess && (
-            <div className="bg-emerald-50 text-emerald-700 text-sm rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
-              <Check className="h-4 w-4" />
-              Password updated successfully.
-            </div>
-          )}
+        {passwordError ? (
+          <div className="mb-4 rounded-xl border border-red-200/80 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {passwordError}
+          </div>
+        ) : null}
 
-          {passwordError && (
-            <div className="bg-red-50 text-red-600 text-sm rounded-xl px-4 py-3 mb-4">{passwordError}</div>
-          )}
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Current password</Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+            />
+          </div>
+          <Button type="submit" disabled={passwordLoading} className="w-full sm:w-auto">
+            {passwordLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
+          </Button>
+        </form>
+      </section>
 
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Current password</Label>
-              <Input
-                type="password"
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>New password</Label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={8}
-              />
-            </div>
-            <Button type="submit" disabled={passwordLoading} className="w-full">
-               {passwordLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update"}
+      <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-5 sm:p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant">
+            <Shield className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-on-surface">Session</h3>
+            <p className="text-sm text-on-surface-variant mt-0.5">
+              Sign out on this device. You can sign back in anytime with your credentials.
+            </p>
+            <Button variant="outline" onClick={logout} className="mt-4 w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign out
             </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Logout */}
-      <Button variant="destructive" onClick={logout} className="w-full">
-        <LogOut className="h-4 w-4 mr-2" />
-        Sign out
-      </Button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

@@ -5,8 +5,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import httpx
 from app.core.config import get_settings
 from app.models.notification import Notification
+from app.models.student import Student
 from app.services.notification_realtime import notification_connections
 
 settings = get_settings()
@@ -37,6 +39,11 @@ CAP_EXEMPT_NOTIFICATION_TYPES = {
     "critical_fatigue_followup",
     "safety",
     "emergency",
+    "exam",
+    "project",
+    "info",
+    "metadata_exam_urgent",
+    "metadata_project_urgent",
 }
 
 
@@ -117,10 +124,36 @@ async def create_notification(
     db.add(notification)
     await db.commit()
     await db.refresh(notification)
+    
+    # Send WebSocket realtime notification
     await notification_connections.send_to_student(
         student_id,
         {"type": "notification.created", "notification": notification_to_payload(notification)},
     )
+    
+    # Send actual Mobile OS Push Notification
+    student_res = await db.execute(select(Student).where(Student.id == student_id))
+    student = student_res.scalars().first()
+    
+    if student and getattr(student, "expo_push_token", None):
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(
+                    "https://exp.host/--/api/v2/push/send",
+                    json={
+                        "to": student.expo_push_token,
+                        "title": notification.title,
+                        "body": notification.body,
+                        "data": notification.payload or {},
+                        "sound": "default",
+                        "channelId": "default"
+                    },
+                    timeout=5.0
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Push notification failed: {e}")
+                
     return notification
 
 

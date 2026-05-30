@@ -29,6 +29,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await studentsApi.me();
     setStudent(data);
     setIsAuthenticated(true);
+    
+    // Register push token with backend
+    try {
+      const { registerForPushNotifications } = require("../lib/notifications");
+      const token = await registerForPushNotifications();
+      if (token) {
+        await studentsApi.updatePushToken(token);
+      }
+    } catch (err) {
+      console.warn("Failed to register push token", err);
+    }
   }, []);
 
   useEffect(() => {

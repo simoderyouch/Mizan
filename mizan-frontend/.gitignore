@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+.env.local
+.env*.local
 venv/
 .venv/
 .DS_Store
@@ -17,6 +19,8 @@ build/
 node_modules/
 **/node_modules/
 .env
+.env.local
+.env*.local
 build/
 dist/
 .next/

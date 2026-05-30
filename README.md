@@ -49,9 +49,9 @@ Production-style demo deployment uses AWS with:
 - Application Load Balancer and CloudFront
 - Secrets Manager, ECR, and CloudWatch
 
-Read the full deployment guide:
+Read the full step-by-step deployment guide (AWS web + mobile EAS):
 
-[DEPLOYMENT_README.md](./DEPLOYMENT_README.md)
+**[DEPLOYMENT_README.md](./DEPLOYMENT_README.md)**
 
 ## CI/CD
 
@@ -74,3 +74,17 @@ Do not commit:
 - private SSH keys
 
 Production requires strong `SECRET_KEY`, HTTPS, restricted CORS, private database access, budget alerts, and a tested destroy/backup plan.
+
+
+## 1. Super Admin Account
+## Email: admin@mizan.ai
+## Password: Mizan@2026!
+## Role: ADMIN
+## 2. Standard Admin Account (School Admin)
+## Email: admin@mizanmail.com
+## Password: Mizan@2026!
+## Role: ADMIN
+## 3. Student Account
+## Email: student001@mizanmail.com
+## Password: Mizan@2026!
+## Role: STUDENT

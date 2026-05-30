@@ -1,14 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Heart, Sparkles, User, ListChecks, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DOCK_ITEMS = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/checkin", label: "Wellbeing", icon: Heart },
-  { href: "/agent/contracts", label: "Actions", icon: ClipboardCheck },
+  { href: "/dashboard", label: "Home", icon: Home, match: "home" as const },
+  { href: "/dashboard#wellbeing", label: "Wellbeing", icon: Heart, match: "wellbeing" as const },
+  { href: "/agent/contracts", label: "Commitments", icon: ClipboardCheck },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
   { href: "/agent/chat", label: "Mizan AI", icon: Sparkles },
   { href: "/profile", label: "Profile", icon: User },
@@ -16,8 +17,22 @@ const DOCK_ITEMS = [
 
 export default function BottomDock() {
   const pathname = usePathname();
+  const [hash, setHash] = useState("");
 
-  const isActive = (href: string) => {
+  useEffect(() => {
+    const sync = () => setHash(window.location.hash);
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [pathname]);
+
+  const isActive = (href: string, match?: "home" | "wellbeing") => {
+    if (match === "wellbeing") {
+      return pathname === "/dashboard" && hash === "#wellbeing";
+    }
+    if (match === "home") {
+      return pathname === "/dashboard" && hash !== "#wellbeing";
+    }
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href.split("/").slice(0, 2).join("/"));
   };
@@ -26,7 +41,7 @@ export default function BottomDock() {
     <nav className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 md:hidden max-w-[calc(100vw-16px)]">
       <div className="glass-dock flex items-center gap-0.5 px-1.5 sm:px-3 py-2">
         {DOCK_ITEMS.map((item) => {
-          const active = isActive(item.href);
+          const active = isActive(item.href, "match" in item ? item.match : undefined);
           const Icon = item.icon;
           return (
             <Link
@@ -34,9 +49,7 @@ export default function BottomDock() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-2 sm:px-4 py-2 rounded-full transition-all min-w-0",
-                active
-                  ? "bg-primary text-on-primary"
-                  : "text-on-surface-variant hover:text-primary"
+                active ? "bg-primary text-on-primary" : "text-on-surface-variant hover:text-primary"
               )}
             >
               <Icon className="h-5 w-5" />

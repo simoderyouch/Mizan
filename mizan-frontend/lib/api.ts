@@ -2,6 +2,7 @@ import axios, { type AxiosError, type AxiosRequestConfig, type InternalAxiosRequ
 import type { AdminDashboardResponse } from "@/lib/admin-types";
 import type {
   AdminDashboardData,
+  AgentChatMessage,
   AgentChatResponse,
   AgentActionContract,
   AgentTestRun,
@@ -83,18 +84,26 @@ import type {
 } from "@/lib/types";
 
 const API_PREFIX = "/api/v1";
-const DEFAULT_API_ORIGIN = "http://localhost:8000";
+/** Direct backend URL (WebSockets, health). HTTP calls may use Next proxy in dev. */
+const DEFAULT_BACKEND_ORIGIN = "http://127.0.0.1:8000";
 const ACCESS_TOKEN_KEY = "mizan_access_token";
 const REFRESH_TOKEN_KEY = "mizan_refresh_token";
 
 const trimTrailingSlashes = (value: string) => value.replace(/\/+$/, "");
 
-const toApiOrigin = (raw: string | undefined): string => {
-  const fallback = trimTrailingSlashes(DEFAULT_API_ORIGIN);
-  const candidate = raw ? trimTrailingSlashes(raw.trim()) : fallback;
+/** Use Next.js `/api/v1` rewrite — avoids browser CORS in local dev. */
+const usesApiProxy = (raw: string | undefined): boolean => {
+  if (raw === undefined) return process.env.NODE_ENV === "development";
+  const t = raw.trim().toLowerCase();
+  return t === "" || t === "proxy" || t === "same-origin";
+};
 
-  if (!candidate) return fallback;
-  if (candidate.startsWith("/")) return fallback;
+const toDirectOrigin = (raw: string | undefined): string => {
+  const fallback = trimTrailingSlashes(DEFAULT_BACKEND_ORIGIN);
+  if (usesApiProxy(raw)) return fallback;
+  if (!raw) return fallback;
+  const candidate = trimTrailingSlashes(raw.trim());
+  if (!candidate || candidate.startsWith("/")) return fallback;
   if (candidate.endsWith(API_PREFIX)) {
     const stripped = candidate.slice(0, -API_PREFIX.length);
     return stripped || fallback;
@@ -102,23 +111,33 @@ const toApiOrigin = (raw: string | undefined): string => {
   return candidate;
 };
 
-export const API_ORIGIN = toApiOrigin(process.env.NEXT_PUBLIC_API_URL);
-export const API_BASE_URL = `${API_ORIGIN}${API_PREFIX}`;
+const proxyEnv = process.env.NEXT_PUBLIC_API_URL;
+export const API_USES_PROXY = usesApiProxy(proxyEnv);
+/** Empty when using Next proxy; otherwise absolute backend origin. */
+export const API_ORIGIN = API_USES_PROXY ? "" : toDirectOrigin(proxyEnv);
+export const BACKEND_ORIGIN = trimTrailingSlashes(
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN?.trim() || toDirectOrigin(proxyEnv)
+);
+export const API_BASE_URL = API_ORIGIN ? `${API_ORIGIN}${API_PREFIX}` : API_PREFIX;
 
 const isBrowser = () => typeof window !== "undefined";
 
 const getStoredAccessToken = () => (isBrowser() ? localStorage.getItem(ACCESS_TOKEN_KEY) : null);
 const getStoredRefreshToken = () => (isBrowser() ? localStorage.getItem(REFRESH_TOKEN_KEY) : null);
 
-const clearStoredTokens = () => {
+export const clearSessionTokens = () => {
   if (!isBrowser()) return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
+const clearStoredTokens = clearSessionTokens;
+
 const redirectToLogin = () => {
   if (!isBrowser()) return;
-  const isAdminRoute = window.location.pathname.startsWith("/admin");
+  const path = window.location.pathname;
+  if (path === "/login" || path.startsWith("/admin/login") || path.startsWith("/activate")) return;
+  const isAdminRoute = path.startsWith("/admin");
   window.location.href = isAdminRoute ? "/admin/login" : "/login";
 };
 
@@ -138,6 +157,9 @@ interface RetryableAxiosRequestConfig extends InternalAxiosRequestConfig {
 }
 
 let refreshPromise: Promise<string | null> | null = null;
+
+/** Non-critical calls: a 401 must not force a global logout redirect. */
+const isSoftAuthFailurePath = (url: string) => url.includes("/notifications");
 
 const refreshClient = axios.create({
   baseURL: API_BASE_URL,
@@ -182,12 +204,27 @@ api.interceptors.response.use(
     if (status === 401 && isBrowser()) {
       const hasAccessToken = Boolean(getStoredAccessToken());
       const hasRefreshToken = Boolean(getStoredRefreshToken());
+      const softFailure = isSoftAuthFailurePath(requestUrl);
 
-      if (!requestConfig || requestConfig._retry || !hasRefreshToken) {
+      const forceLogout = () => {
+        if (softFailure) return;
         if (hasAccessToken || hasRefreshToken) {
           clearStoredTokens();
           redirectToLogin();
         }
+      };
+
+      if (!requestConfig) {
+        return Promise.reject(error);
+      }
+
+      if (requestConfig._retry) {
+        forceLogout();
+        return Promise.reject(error);
+      }
+
+      if (!hasRefreshToken) {
+        forceLogout();
         return Promise.reject(error);
       }
 
@@ -204,8 +241,7 @@ api.interceptors.response.use(
 
       const newAccessToken = await refreshPromise;
       if (!newAccessToken) {
-        clearStoredTokens();
-        redirectToLogin();
+        forceLogout();
         return Promise.reject(error);
       }
 
@@ -213,12 +249,7 @@ api.interceptors.response.use(
       return api(requestConfig);
     }
 
-    if (status === 403 && isBrowser()) {
-      const hasToken = Boolean(getStoredAccessToken());
-      if (hasToken && !isAuthRequest) {
-        redirectToUnauthorized();
-      }
-    }
+    // Do not auto-redirect on 403 — optional dashboard calls may fail without invalidating the session.
 
     return Promise.reject(error);
   }
@@ -248,6 +279,13 @@ export function getApiErrorMessage(
   fallback = "Erreur de communication avec le serveur."
 ): string {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) return fallback;
+
+  if (!error.response) {
+    if (error.code === "ECONNABORTED") {
+      return "La requête a expiré. Le serveur met trop de temps à répondre (voix / IA).";
+    }
+    return `Impossible de joindre le serveur (${BACKEND_ORIGIN}). Lancez le backend : docker compose up -d db backend — puis rechargez la page.`;
+  }
 
   const data = error.response?.data;
   if (!isObject(data)) return fallback;
@@ -287,14 +325,43 @@ const toFormData = (file: File) => {
 const toWsOrigin = (origin: string) =>
   origin.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
 
-const request = async <T>(config: AxiosRequestConfig): Promise<T> => {
-  const response = await api.request<T>(config);
+/** WebSocket must reach the API host the browser can open (not the Next.js HTTP proxy). */
+export const resolveNotificationsWsOrigin = (): string => {
+  const wsOverride = process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_ORIGIN?.trim();
+  if (wsOverride) {
+    return trimTrailingSlashes(wsOverride.replace(/^ws:\/\//i, "http://").replace(/^wss:\/\//i, "https://"));
+  }
+  if (API_USES_PROXY) {
+    return BACKEND_ORIGIN;
+  }
+  return API_ORIGIN || BACKEND_ORIGIN;
+};
+
+type MizanRequestConfig = AxiosRequestConfig & {
+  /** Bypass Next dev proxy for long-running calls (e.g. voice TTS). */
+  directBackend?: boolean;
+};
+
+const resolveRequestConfig = (config: MizanRequestConfig): AxiosRequestConfig => {
+  if (!config.directBackend || !API_USES_PROXY || !isBrowser()) {
+    return config;
+  }
+  const { directBackend: _directBackend, ...rest } = config;
+  return {
+    ...rest,
+    baseURL: `${BACKEND_ORIGIN}${API_PREFIX}`,
+    timeout: rest.timeout ?? 120_000,
+  };
+};
+
+const request = async <T>(config: MizanRequestConfig): Promise<T> => {
+  const response = await api.request<T>(resolveRequestConfig(config));
   return response.data;
 };
 
 const requestRoot = async <T>(config: AxiosRequestConfig): Promise<T> => {
   const response = await axios.request<T>({
-    baseURL: API_ORIGIN,
+    baseURL: BACKEND_ORIGIN,
     headers: { Accept: "application/json" },
     ...config,
   });
@@ -373,6 +440,7 @@ export const studentsApi = {
     request<ApiMessageResponse>({ method: "DELETE", url: `/students/${studentId}` }),
   me: () => request<Student>({ method: "GET", url: "/students/me" }),
   context: () => request<StudentContext>({ method: "GET", url: "/students/me/context" }),
+  mySchedules: () => request<ScheduleEntry[]>({ method: "GET", url: "/students/me/schedules" }),
 };
 
 export const classContentApi = {
@@ -380,6 +448,11 @@ export const classContentApi = {
     request<ScheduleEntry[]>({ method: "GET", url: `/class-content/${classId}/schedules` }),
   createSchedule: (classId: string, payload: ScheduleCreatePayload) =>
     request<ApiMessageResponse>({ method: "POST", url: `/class-content/${classId}/schedules`, data: payload }),
+  syncSchedulesToStudents: (classId: string) =>
+    request<ApiMessageResponse & { students?: number; template_slots?: number; rows_added?: number }>({
+      method: "POST",
+      url: `/class-content/${classId}/schedules/sync-students`,
+    }),
   updateSchedule: (classId: string, scheduleId: string, payload: ScheduleUpdatePayload, applyToClass = true) =>
     request<ApiMessageResponse>({
       method: "PATCH",
@@ -467,9 +540,9 @@ export const goalsApi = {
 
 export const tasksApi = {
   list: (params?: { status?: TaskStatus; due_date?: string }) =>
-    request<Task[]>({ method: "GET", url: buildPathWithQuery("/tasks/", params ?? {}) }),
+    request<Task[]>({ method: "GET", url: buildPathWithQuery("/tasks", params ?? {}) }),
   create: (payload: { title: string; description?: string; due_date?: string; source?: "manual" | "chat" | "voice_chat" | "morning_checkin" }) =>
-    request<Task>({ method: "POST", url: "/tasks/", data: payload }),
+    request<Task>({ method: "POST", url: "/tasks", data: payload }),
   createMany: (payload: TaskBulkCreatePayload) =>
     request<Task[]>({ method: "POST", url: "/tasks/bulk", data: payload }),
   updateStatus: (taskId: string, status: TaskStatus) =>
@@ -504,18 +577,31 @@ export const analyticsApi = {
 
 export const voiceApi = {
   start: (period: VoicePeriod) =>
-    request<VoiceSessionResponse>({ method: "POST", url: "/voice/start", data: { period } }),
+    request<VoiceSessionResponse>({
+      method: "POST",
+      url: "/voice/start",
+      data: { period },
+      directBackend: true,
+      timeout: 120_000,
+    }),
   transcribe: (file: File) =>
     request<VoiceTranscribeResponse>({
       method: "POST",
       url: "/voice/transcribe",
       data: toFormData(file),
       headers: { "Content-Type": "multipart/form-data" },
+      directBackend: true,
+      timeout: 120_000,
     }),
   submit: (payload: VoiceSessionSubmitPayload) =>
     request<VoiceAnalysis>({ method: "POST", url: "/voice/submit", data: payload }),
   chat: (payload: VoiceChatRequest) =>
-    request<VoiceChatResponse>({ method: "POST", url: "/voice/chat", data: payload }),
+    request<VoiceChatResponse>({
+      method: "POST",
+      url: "/voice/chat",
+      data: payload,
+      timeout: 90000,
+    }),
 };
 
 export const resourcesApi = {
@@ -529,7 +615,7 @@ export const resourcesApi = {
 
 export const notificationsApi = {
   list: (params?: { unread_only?: boolean; limit?: number }) =>
-    request<Notification[]>({ method: "GET", url: buildPathWithQuery("/notifications/", params ?? {}) }),
+    request<Notification[]>({ method: "GET", url: buildPathWithQuery("/notifications", params ?? {}) }),
   markRead: (notificationId: string, is_read = true) =>
     request<Notification>({
       method: "PATCH",
@@ -544,7 +630,7 @@ export const notificationsApi = {
   realtimeUrl: () => {
     const token = getStoredAccessToken();
     if (!token) return null;
-    const wsOrigin = toWsOrigin(API_ORIGIN);
+    const wsOrigin = toWsOrigin(resolveNotificationsWsOrigin());
     return `${wsOrigin}${API_PREFIX}/notifications/ws?token=${encodeURIComponent(token)}`;
   },
 };
@@ -573,8 +659,12 @@ export const agentApi = {
   context: () => request<Record<string, unknown>>({ method: "GET", url: "/agent/context" }),
   plan: (payload: AgentPlanPayload) =>
     request<AgentPlanResponse>({ method: "POST", url: "/agent/plan", data: payload }),
-  chat: (message: string) =>
-    request<AgentChatResponse>({ method: "POST", url: "/agent/chat", data: { message } }),
+  chat: (message: string, history: AgentChatMessage[] = []) =>
+    request<AgentChatResponse>({
+      method: "POST",
+      url: "/agent/chat",
+      data: { message, history: history.slice(-24) },
+    }),
   listTestRuns: (limit = 20) =>
     request<AgentTestRun[]>({ method: "GET", url: buildPathWithQuery("/agent/test/runs", { limit }) }),
   triggerTestRun: (payload: AgentTestTriggerPayload) =>
@@ -584,16 +674,21 @@ export const agentApi = {
       method: "GET",
       url: buildPathWithQuery("/agent/contracts", params ?? {}),
     }),
-  respondContract: (contractId: string, accepted: boolean) =>
+  respondContract: (
+    contractId: string,
+    accepted: boolean,
+    options?: { declineReason?: string }
+  ) =>
     request<AgentActionContract>({
       method: "POST",
       url: `/agent/contracts/${contractId}/respond`,
-      data: { accepted },
+      data: { accepted, decline_reason: options?.declineReason ?? null },
     }),
-  completeContract: (contractId: string) =>
+  completeContract: (contractId: string, options?: { fromPending?: boolean }) =>
     request<AgentActionContract>({
       method: "POST",
       url: `/agent/contracts/${contractId}/complete`,
+      data: { from_pending: options?.fromPending ?? false },
     }),
   processFollowupsForTest: () =>
     request<{ sent: number }>({

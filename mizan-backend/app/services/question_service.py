@@ -3,10 +3,12 @@ import json
 import re
 from typing import Literal
 
+import logging
 from mistralai.client import Mistral
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 CheckinPeriod = Literal["MORNING", "EVENING"]
@@ -361,10 +363,11 @@ def _validate_questions(period: CheckinPeriod, mode: CheckinMode, questions: lis
     return validated if validated else _fallback_questions(context, period, mode)
 
 
-async def generate_personalized_questions(context: dict, period: CheckinPeriod, mode: CheckinMode) -> list[dict]:
+async def generate_personalized_questions(context: dict, period: CheckinPeriod, mode: CheckinMode) -> tuple[list[dict], Literal["llm", "fallback"]]:
     fallback = _fallback_questions(context, period, mode)
     if not (settings.MISTRAL_API_KEY or "").strip():
-        return fallback
+        logger.warning("generate_personalized_questions: fallback reason=no_key period=%s mode=%s", period, mode)
+        return fallback, "fallback"
 
     student = context.get("student", {})
     schedule = context.get("today_schedule", [])
@@ -425,7 +428,32 @@ Rules:
         payload = json.loads(raw_content)
         questions = payload.get("questions", []) if isinstance(payload, dict) else []
         if not isinstance(questions, list):
-            return fallback
-        return _validate_questions(period, mode, questions, context)
-    except Exception:
-        return fallback
+            logger.warning(
+                "generate_personalized_questions: fallback reason=invalid_json period=%s mode=%s",
+                period,
+                mode,
+            )
+            return fallback, "fallback"
+        validated = _validate_questions(period, mode, questions, context)
+        if not validated:
+            logger.warning(
+                "generate_personalized_questions: fallback reason=validation_failed period=%s mode=%s",
+                period,
+                mode,
+            )
+            return fallback, "fallback"
+        logger.info(
+            "generate_personalized_questions: source=llm count=%s period=%s mode=%s",
+            len(validated),
+            period,
+            mode,
+        )
+        return validated, "llm"
+    except Exception as e:
+        logger.error(
+            "generate_personalized_questions: fallback reason=mistral_error period=%s mode=%s error=%s",
+            period,
+            mode,
+            e,
+        )
+        return fallback, "fallback"

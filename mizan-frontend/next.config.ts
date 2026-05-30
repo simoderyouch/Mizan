@@ -2,16 +2,24 @@
 import type { NextConfig } from "next";
 
 const API_PREFIX = "/api/v1";
-const DEFAULT_API_ORIGIN = "http://localhost:8000";
+const DEFAULT_BACKEND_ORIGIN = "http://127.0.0.1:8000";
 const normalize = (value: string) => value.replace(/\/+$/, "");
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-const toApiOrigin = (raw: string | undefined): string => {
-  const fallback = normalize(DEFAULT_API_ORIGIN);
-  const candidate = raw ? normalize(raw.trim()) : fallback;
+const usesApiProxy = (raw: string | undefined): boolean => {
+  if (raw === undefined) return process.env.NODE_ENV === "development";
+  const t = raw.trim().toLowerCase();
+  return t === "" || t === "proxy" || t === "same-origin";
+};
 
-  if (!candidate) return fallback;
-  if (candidate.startsWith("/")) return fallback;
+const rewriteTargetOrigin = (raw: string | undefined): string => {
+  const fallback = normalize(
+    process.env.NEXT_PUBLIC_BACKEND_ORIGIN?.trim() || DEFAULT_BACKEND_ORIGIN
+  );
+  if (usesApiProxy(raw)) return fallback;
+  if (!raw) return fallback;
+  const candidate = normalize(raw.trim());
+  if (!candidate || candidate.startsWith("/")) return fallback;
   if (candidate.endsWith(API_PREFIX)) {
     const stripped = candidate.slice(0, -API_PREFIX.length);
     return stripped || fallback;
@@ -19,7 +27,7 @@ const toApiOrigin = (raw: string | undefined): string => {
   return candidate;
 };
 
-const apiOrigin = toApiOrigin(rawApiUrl);
+const apiOrigin = rewriteTargetOrigin(rawApiUrl);
 const apiBaseUrl = `${apiOrigin}${API_PREFIX}`;
 
 const nextConfig: NextConfig = {

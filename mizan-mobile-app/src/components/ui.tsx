@@ -63,23 +63,27 @@ export function Button({
   textStyle?: StyleProp<TextStyle>;
 }) {
   const content = React.Children.toArray(children)
+    .filter((child) => child != null)
     .filter((child) => typeof child !== "string" || child.trim().length > 0)
-    .map((child, index) =>
-      typeof child === "string" ? (
-        <Text
-          key={`button-text-${index}`}
-          style={[
-            styles.buttonText,
-            (variant === "secondary" || variant === "ghost") && styles.buttonTextSecondary,
-            textStyle,
-          ]}
-        >
-          {child}
-        </Text>
-      ) : (
-        child
-      )
-    );
+    .map((child, index) => {
+      if (typeof child === "string" || typeof child === "number") {
+        return (
+          <Text
+            key={`button-text-${index}`}
+            style={[
+              styles.buttonText,
+              (variant === "secondary" || variant === "ghost") && styles.buttonTextSecondary,
+              textStyle,
+            ]}
+          >
+            {child}
+          </Text>
+        );
+      }
+      return React.isValidElement(child)
+        ? React.cloneElement(child, { key: child.key ?? `button-node-${index}` })
+        : null;
+    });
 
   const buttonStyle = [
     styles.button,
@@ -126,6 +130,12 @@ export function Field({
   );
 }
 
+function flattenTextChildren(children: React.ReactNode): string {
+  if (children == null || typeof children === "boolean") return "";
+  if (typeof children === "string" || typeof children === "number") return String(children);
+  return React.Children.toArray(children).map(flattenTextChildren).join("");
+}
+
 export function Badge({
   children,
   tone = "neutral",
@@ -154,13 +164,13 @@ export function Badge({
           tone === "purple" && { color: colors.accent },
         ]}
       >
-        {children}
+        {flattenTextChildren(children)}
       </Text>
     </View>
   );
 }
 
-export function LoadingState({ label = "Chargement..." }: { label?: string }) {
+export function LoadingState({ label = "Loading..." }: { label?: string }) {
   return (
     <View style={styles.centerState}>
       <View style={styles.loaderMark}>
@@ -280,12 +290,12 @@ export const styles = StyleSheet.create({
   },
   button: {
     alignItems: "center",
-    borderRadius: radius.lg,
+    borderRadius: 999, // Pill shape for modern look
     flexDirection: "row",
     gap: spacing.sm,
     justifyContent: "center",
-    minHeight: 50,
-    paddingHorizontal: spacing.lg,
+    minHeight: 56,
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
   },
   buttonPrimary: {
@@ -322,13 +332,13 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
   },
   input: {
-    backgroundColor: colors.surfaceHigh,
-    borderColor: "rgba(194, 198, 211, 0.22)",
-    borderRadius: radius.md,
+    backgroundColor: colors.surfaceLow,
+    borderColor: "rgba(194, 198, 211, 0.4)",
+    borderRadius: 16,
     borderWidth: 1,
     color: colors.text,
     fontSize: 16,
-    minHeight: 50,
+    minHeight: 56,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },

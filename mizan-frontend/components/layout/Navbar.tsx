@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { Bell, LogOut, AlertTriangle, Calendar, Clock, Dumbbell, Heart, Moon, FileText, CheckCircle2 } from "lucide-react";
-import { notificationsApi } from "@/lib/api";
+import { notificationCommitmentHref, COMMITMENTS_LABEL } from "@/lib/agent-commitments";
+import { useNotifications } from "@/lib/notifications-context";
+import { Bell, LogOut, AlertTriangle, Calendar, Clock, Dumbbell, Heart, Moon, FileText, CheckCircle2, User } from "lucide-react";
 import type { Notification } from "@/lib/types";
 import { cn, formatDateShort, formatTime } from "@/lib/utils";
 import {
@@ -21,73 +22,53 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Home" },
-  { href: "/checkin", label: "Wellbeing" },
   { href: "/tasks", label: "Tasks" },
-  { href: "/agent/contracts", label: "AI Actions" },
+  { href: "/agent/contracts", label: COMMITMENTS_LABEL },
   { href: "/agent/chat", label: "Mizan AI" },
   { href: "/history", label: "Progress" },
-  { href: "/profile", label: "Profile" },
 ];
 
 const SHORTCUT_LINKS = [
   { href: "/modes", label: "Modes" },
   { href: "/goals", label: "Goals" },
   { href: "/tasks", label: "Tasks" },
-  { href: "/agent/contracts", label: "AI Actions" },
-  { href: "/agent/scenarios", label: "Scenario Lab" },
+  { href: "/agent/contracts", label: COMMITMENTS_LABEL },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { student, logout } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const {
+    notifications,
+    unreadCount,
+    isLoading: isLoadingNotifications,
+    loadError,
+    refresh,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
-  const loadNotifications = useCallback(async () => {
-    setIsLoadingNotifications(true);
-    try {
-      const data = await notificationsApi.list({ limit: 20 });
-      setNotifications(data);
-    } finally {
-      setIsLoadingNotifications(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isNotificationsOpen) return;
-    void loadNotifications();
-  }, [isNotificationsOpen, loadNotifications]);
-
-  const unreadCount = useMemo(
-    () => notifications.reduce((count, item) => (item.is_read ? count : count + 1), 0),
-    [notifications]
+  const handleNotificationsOpenChange = useCallback(
+    (open: boolean) => {
+      setIsNotificationsOpen(open);
+      if (open) void refresh();
+    },
+    [refresh]
   );
 
-  const markNotificationAsRead = useCallback(async (notificationId: string) => {
-    const target = notifications.find((item) => item.id === notificationId);
-    if (!target || target.is_read) return;
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === notificationId ? { ...item, is_read: true } : item))
-    );
-    try {
-      await notificationsApi.markRead(notificationId, true);
-    } catch {
-      setNotifications((prev) =>
-        prev.map((item) => (item.id === notificationId ? { ...item, is_read: false } : item))
-      );
-    }
-  }, [notifications]);
-  const markAllAsRead = useCallback(async () => {
-    if (unreadCount === 0) return;
-    const previous = [...notifications];
-    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-    try {
-      await notificationsApi.readAll();
-    } catch {
-      setNotifications(previous);
-    }
-  }, [notifications, unreadCount]);
+  const openNotification = useCallback(
+    async (item: Notification) => {
+      await markAsRead(item.id);
+      const href = notificationCommitmentHref(item.payload ?? undefined);
+      if (href) {
+        setIsNotificationsOpen(false);
+        router.push(href);
+      }
+    },
+    [markAsRead, router]
+  );
 
   const getNotificationIcon = (type: string) => {
     const t = type.toLowerCase();
@@ -119,7 +100,6 @@ export default function Navbar() {
   return (
     <header className=" top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/10">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 py-2 flex items-center justify-between">
-        {/* Logo */}
         <Link href="/dashboard" className="inline-flex items-center">
           <Image
             src="/MIZAN_FULL_LOGO.png"
@@ -131,7 +111,6 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
             <Link
@@ -149,9 +128,8 @@ export default function Navbar() {
           ))}
         </nav>
 
-        {/* Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3">
-          <DropdownMenu open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
+          <DropdownMenu open={isNotificationsOpen} onOpenChange={handleNotificationsOpenChange}>
             <DropdownMenuTrigger asChild>
               <button className="relative rounded-full p-2 text-on-surface-variant hover:bg-surface-container">
                 <Bell className="h-5 w-5" />
@@ -169,7 +147,7 @@ export default function Navbar() {
                   {unreadCount > 0 && (
                     <button
                       type="button"
-                      onClick={markAllAsRead}
+                      onClick={() => void markAllAsRead()}
                       className="text-xs text-primary font-medium hover:underline"
                     >
                       All seen
@@ -177,7 +155,7 @@ export default function Navbar() {
                   )}
                   <button
                     type="button"
-                    onClick={() => void loadNotifications()}
+                    onClick={() => void refresh()}
                     className="text-xs text-on-surface-variant hover:text-primary transition-colors"
                   >
                     Refresh
@@ -187,6 +165,8 @@ export default function Navbar() {
               <div className="max-h-[22rem] overflow-y-auto p-2">
                 {isLoadingNotifications ? (
                   <p className="px-2 py-3 text-sm text-on-surface-variant">Loading...</p>
+                ) : loadError ? (
+                  <p className="px-2 py-3 text-sm text-red-600">{loadError}</p>
                 ) : notifications.length === 0 ? (
                   <p className="px-2 py-3 text-sm text-on-surface-variant">No notifications yet.</p>
                 ) : (
@@ -194,7 +174,7 @@ export default function Navbar() {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => void markNotificationAsRead(item.id)}
+                      onClick={() => void openNotification(item)}
                       className={cn(
                         "mb-2 w-full rounded-lg border p-3 text-left transition-all duration-200 hover:scale-[1.01]",
                         getNotificationColor(item.type, item.is_read)
@@ -236,7 +216,6 @@ export default function Navbar() {
             <DropdownMenuTrigger asChild>
               <button className="rounded-full">
                 <Avatar className="h-9 w-9">
-
                   {student?.photo_url ? (
                     <AvatarImage src={student.photo_url} alt="avatar" className="object-cover" />
                   ) : null}
@@ -250,6 +229,13 @@ export default function Navbar() {
               <DropdownMenuLabel>
                 {student ? `${student.first_name} ${student.last_name}`.trim() : "My account"}
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  My profile
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs font-medium text-on-surface-variant">Navigation</DropdownMenuLabel>
               {NAV_LINKS.map((link) => (

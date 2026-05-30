@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Loader2, Pencil, Trash2, Upload } from "lucide-react";
 
-import { classContentApi, getApiErrorMessage } from "@/lib/api";
+import { classContentApi, getApiErrorMessage, studentsApi } from "@/lib/api";
+import type { Student } from "@/lib/types";
 import type { Exam, Project, Schedule } from "@/lib/admin-types";
+import { CALENDAR_WEEKDAYS } from "@/lib/student-calendar";
 import { EmptyState, ErrorState } from "@/components/admin/async-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -52,14 +61,11 @@ interface ProjectFormState {
   name: string;
   subject: string;
   due_date: string;
-  membersText: string;
 }
-
-const DAY_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   subject: "",
-  day_of_week: DAY_OPTIONS[0],
+  day_of_week: CALENDAR_WEEKDAYS[0],
   start_time: "08:00",
   end_time: "10:00",
   room: "",
@@ -78,17 +84,13 @@ const INITIAL_PROJECT_FORM: ProjectFormState = {
   name: "",
   subject: "",
   due_date: "",
-  membersText: "",
 };
 
 const toTimeInput = (value: string) => value.slice(0, 5);
 const toDateInput = (value: string) => value.slice(0, 10);
 
-const parseMembers = (value: string) =>
-  value
-    .split(/[\n,]/)
-    .map((member) => member.trim())
-    .filter(Boolean);
+const studentDisplayName = (student: Student) =>
+  `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() || student.email;
 
 export default function ClassContentPage() {
   const params = useParams<{ classId: string }>();
@@ -137,6 +139,12 @@ export default function ClassContentPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [deleting, setDeleting] = useState(false);
+  const [classStudents, setClassStudents] = useState<Student[]>([]);
+
+  const classRosterNames = useMemo(
+    () => classStudents.map(studentDisplayName).filter(Boolean),
+    [classStudents]
+  );
 
   const updateLoading = (tab: ContentTab, loading: boolean) => {
     setLoadingByTab((prev) => ({ ...prev, [tab]: loading }));
@@ -199,6 +207,14 @@ export default function ClassContentPage() {
     void Promise.all([loadSchedules(), loadExams(), loadProjects()]);
   }, [loadSchedules, loadExams, loadProjects]);
 
+  useEffect(() => {
+    if (!classId) return;
+    void studentsApi
+      .listByClass(classId)
+      .then(setClassStudents)
+      .catch(() => setClassStudents([]));
+  }, [classId]);
+
   const handleCreateSchedule = async (event: FormEvent) => {
     event.preventDefault();
     if (!scheduleForm.subject.trim()) {
@@ -251,7 +267,14 @@ export default function ClassContentPage() {
         room: examForm.room.trim(),
       });
       setExamForm(INITIAL_EXAM_FORM);
-      toast({ title: "Exam created", description: response.message });
+      const agent = (response as { agent?: { urgent?: boolean; actions_taken?: number } }).agent;
+      const agentNote =
+        agent?.urgent && agent.actions_taken
+          ? ` Mizan ran urgent actions for ${agent.actions_taken} student(s) (tasks + alerts).`
+          : agent?.urgent
+            ? " Mizan flagged this as urgent for students."
+            : "";
+      toast({ title: "Exam created", description: `${response.message}.${agentNote}` });
       await loadExams();
     } catch (error: unknown) {
       toast({
@@ -281,10 +304,16 @@ export default function ClassContentPage() {
         name: projectForm.name.trim(),
         subject: projectForm.subject.trim(),
         due_date: projectForm.due_date,
-        members: parseMembers(projectForm.membersText),
       });
       setProjectForm(INITIAL_PROJECT_FORM);
-      toast({ title: "Project created", description: response.message });
+      const agent = (response as { agent?: { urgent?: boolean; actions_taken?: number } }).agent;
+      const agentNote =
+        agent?.urgent && agent.actions_taken
+          ? ` Mizan ran urgent actions for ${agent.actions_taken} student(s) (tasks + alerts).`
+          : agent?.urgent
+            ? " Mizan flagged this as urgent for students."
+            : "";
+      toast({ title: "Project created", description: `${response.message}.${agentNote}` });
       await loadProjects();
     } catch (error: unknown) {
       toast({
@@ -326,7 +355,6 @@ export default function ClassContentPage() {
       name: item.name,
       subject: item.subject,
       due_date: toDateInput(item.due_date),
-      membersText: item.members.join(", "),
     });
   };
 
@@ -408,7 +436,6 @@ export default function ClassContentPage() {
           name: editProjectForm.name.trim(),
           subject: editProjectForm.subject.trim(),
           due_date: editProjectForm.due_date,
-          members: parseMembers(editProjectForm.membersText),
         },
         applyToClassByTab.projects
       );
@@ -523,6 +550,7 @@ export default function ClassContentPage() {
           <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Create schedule entry</CardTitle>
+              <p className="text-sm text-slate-500 mt-1">Saved entries sync to all students in this class immediately.</p>
             </CardHeader>
             <CardContent>
               <form className="grid grid-cols-1 gap-3 md:grid-cols-6 md:items-end" onSubmit={handleCreateSchedule}>
@@ -537,18 +565,23 @@ export default function ClassContentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="schedule-day">Day</Label>
-                  <Input
-                    id="schedule-day"
-                    list="schedule-day-options"
+                  <Select
                     value={scheduleForm.day_of_week}
-                    onChange={(event) => setScheduleForm((prev) => ({ ...prev, day_of_week: event.target.value }))}
-                    required
-                  />
-                  <datalist id="schedule-day-options">
-                    {DAY_OPTIONS.map((day) => (
-                      <option key={day} value={day} />
-                    ))}
-                  </datalist>
+                    onValueChange={(value) =>
+                      setScheduleForm((prev) => ({ ...prev, day_of_week: value }))
+                    }
+                  >
+                    <SelectTrigger id="schedule-day" className="w-full">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CALENDAR_WEEKDAYS.map((day) => (
+                        <SelectItem key={day} value={day}>
+                          {day}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="schedule-start">Start</Label>
@@ -599,6 +632,10 @@ export default function ClassContentPage() {
           <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Schedules</CardTitle>
+              <p className="text-sm text-slate-500 mt-1">
+                New and updated slots are pushed to every student in this class automatically. New students
+                receive the class timetable when they are enrolled.
+              </p>
             </CardHeader>
             <CardContent>
               {loadingByTab.schedules ? (
@@ -820,16 +857,12 @@ export default function ClassContentPage() {
                   Add
                 </Button>
               </form>
-              <div className="mt-3 max-w-2xl space-y-2">
-                <Label htmlFor="project-members">Members (comma or newline separated)</Label>
-                <Textarea
-                  id="project-members"
-                  rows={3}
-                  value={projectForm.membersText}
-                  onChange={(event) => setProjectForm((prev) => ({ ...prev, membersText: event.target.value }))}
-                  placeholder="Alice, Bob, Claire"
-                />
-              </div>
+              <p className="mt-3 max-w-2xl text-sm text-slate-600">
+                Team: <strong>whole class</strong>
+                {classRosterNames.length > 0
+                  ? ` (${classRosterNames.length} students — ${classRosterNames.slice(0, 6).join(", ")}${classRosterNames.length > 6 ? ", …" : ""})`
+                  : " — add students to this class first."}
+              </p>
             </CardContent>
           </Card>
 
@@ -855,7 +888,7 @@ export default function ClassContentPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Subject</TableHead>
                       <TableHead>Due date</TableHead>
-                      <TableHead>Members</TableHead>
+                      <TableHead>Team</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -865,7 +898,11 @@ export default function ClassContentPage() {
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell>{item.subject}</TableCell>
                         <TableCell>{toDateInput(item.due_date)}</TableCell>
-                        <TableCell>{item.members.join(", ") || "-"}</TableCell>
+                        <TableCell>
+                          <span className="text-slate-700">
+                            Whole class ({item.members.length || classRosterNames.length})
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             <Button variant="secondary" size="sm" onClick={() => openEditProject(item)}>
@@ -911,12 +948,23 @@ export default function ClassContentPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="edit-schedule-day">Day</Label>
-                <Input
-                  id="edit-schedule-day"
+                <Select
                   value={editScheduleForm.day_of_week}
-                  onChange={(event) => setEditScheduleForm((prev) => ({ ...prev, day_of_week: event.target.value }))}
-                  required
-                />
+                  onValueChange={(value) =>
+                    setEditScheduleForm((prev) => ({ ...prev, day_of_week: value }))
+                  }
+                >
+                  <SelectTrigger id="edit-schedule-day" className="w-full">
+                    <SelectValue placeholder="Select day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CALENDAR_WEEKDAYS.map((day) => (
+                      <SelectItem key={day} value={day}>
+                        {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-schedule-start">Start</Label>
@@ -1068,15 +1116,10 @@ export default function ClassContentPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-project-members">Members</Label>
-              <Textarea
-                id="edit-project-members"
-                rows={3}
-                value={editProjectForm.membersText}
-                onChange={(event) => setEditProjectForm((prev) => ({ ...prev, membersText: event.target.value }))}
-              />
-            </div>
+            <p className="text-sm text-slate-600">
+              Team: whole class ({classRosterNames.length} students). Membership updates automatically
+              when students join or leave the class.
+            </p>
             <DialogFooter>
               <Button type="submit" disabled={savingByTab.projects}>
                 {savingByTab.projects ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

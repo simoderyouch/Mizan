@@ -60,8 +60,24 @@ class VoiceChatRequest(BaseModel):
     history: List[VoiceChatMessage] = []
 
 
+class VoiceAgentActionSummary(BaseModel):
+    run_id: Optional[str] = None
+    status: Optional[str] = None
+    action: Optional[str] = None
+    took_action: bool = False
+    skipped: bool = False
+    message: Optional[str] = None
+    skip_reason: Optional[str] = None
+    actions: List[str] = []
+    notification_id: Optional[str] = None
+    task_id: Optional[str] = None
+    contract_id: Optional[str] = None
+    thought: Optional[str] = None
+
+
 class VoiceChatResponse(BaseModel):
     agent_text: str
     agent_audio_base64: str
     safety_level: Optional[Literal["none", "high"]] = None
     safety_action: Optional[Literal["human_support_recommended"]] = None
+    agent_action: Optional[VoiceAgentActionSummary] = None

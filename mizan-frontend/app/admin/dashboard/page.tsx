@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
           <h1 className="text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">Dashboard</h1>
           <p className="mt-2 text-base text-on-surface-variant">Real-time command center for institutions and risk monitoring.</p>
         </div>
-        <Button variant="ghost" onClick={() => void loadDashboard()} disabled={loading} className="rounded-xl border-none bg-surface-container-low shadow-sm transition-all hover:bg-surface-container-high">
+        <Button variant="ghost" onClick={() => void loadDashboard()} disabled={loading} className="rounded-lg border-none bg-surface-container-low shadow-sm transition-all hover:bg-surface-container-high">
           {loading ? "Syncing..." : "Refresh analytics"}
         </Button>
       </div>
@@ -155,14 +155,14 @@ export default function AdminDashboardPage() {
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: KPI_CONFIG.length }).map((_, idx) => (
-              <Skeleton key={idx} className="h-32 rounded-2xl bg-white" />
+              <Skeleton key={idx} className="h-32 rounded-xl bg-white" />
             ))}
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <Skeleton className="h-[340px] rounded-2xl bg-white xl:col-span-2" />
-            <Skeleton className="h-[340px] rounded-2xl bg-white" />
-            <Skeleton className="h-[340px] rounded-2xl bg-white xl:col-span-2" />
-            <Skeleton className="h-[340px] rounded-2xl bg-white" />
+            <Skeleton className="h-[340px] rounded-xl bg-white xl:col-span-2" />
+            <Skeleton className="h-[340px] rounded-xl bg-white" />
+            <Skeleton className="h-[340px] rounded-xl bg-white xl:col-span-2" />
+            <Skeleton className="h-[340px] rounded-xl bg-white" />
           </div>
         </>
       ) : (
@@ -176,7 +176,7 @@ export default function AdminDashboardPage() {
                   <CardContent className="space-y-4 !p-6">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">{item.label}</span>
-                      <div className="rounded-xl p-2.5 transition-colors" style={{ backgroundColor: `${item.accent}15`, color: item.accent }}>
+                      <div className="rounded-lg p-2.5 transition-colors" style={{ backgroundColor: `${item.accent}15`, color: item.accent }}>
                         <Icon className="h-4 w-4" />
                       </div>
                     </div>
@@ -237,13 +237,13 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Link href="/admin/classes" className="block">
-                  <Button className="group w-full justify-between rounded-xl py-6 bg-primary text-on-primary shadow-sanctuary transition-all hover:shadow-sanctuary-lg">
+                  <Button className="group w-full justify-between rounded-lg py-6 bg-primary text-on-primary shadow-sanctuary transition-all hover:shadow-sanctuary-lg">
                     Go to academy operations
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
                 </Link>
                 <Link href="/admin/resources" className="block">
-                  <Button variant="ghost" className="w-full justify-between rounded-xl py-6 border-none bg-surface-container-low hover:bg-surface-container-high transition-colors text-primary">
+                  <Button variant="ghost" className="w-full justify-between rounded-lg py-6 border-none bg-surface-container-low hover:bg-surface-container-high transition-colors text-primary">
                     Manage resources
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -262,7 +262,7 @@ export default function AdminDashboardPage() {
                         <Tooltip key={shortcut.label}>
                           <TooltipTrigger asChild>
                             <Link href={shortcut.href}>
-                              <Button variant="ghost" size="sm" className="w-full rounded-xl bg-surface-container-low hover:bg-surface-container-high text-xs">
+                              <Button variant="ghost" size="sm" className="w-full rounded-lg bg-surface-container-low hover:bg-surface-container-high text-xs">
                                 {shortcut.label}
                               </Button>
                             </Link>
@@ -329,7 +329,7 @@ export default function AdminDashboardPage() {
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {filteredClassRisk.length ? (
                   filteredClassRisk.slice(0, 10).map((item) => (
-                    <div key={item.class_id} className="group rounded-2xl bg-surface-container-low p-4 transition-all hover:bg-surface-container-high">
+                    <div key={item.class_id} className="group rounded-xl bg-surface-container-low p-4 transition-all hover:bg-surface-container-high border border-surface-container-high/50">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-bold text-on-surface">{item.class_name}</p>
@@ -373,15 +373,15 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl bg-surface-container-low p-4">
+                  <div className="rounded-xl bg-surface-container-low p-4 border border-surface-container-high/50">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Low mood 7d</p>
                     <p className="mt-2 text-3xl font-bold text-on-surface">{dashboard?.risk_summary?.low_mood_students_7d ?? 0}</p>
                   </div>
-                  <div className="rounded-2xl bg-surface-container-low p-4">
+                  <div className="rounded-xl bg-surface-container-low p-4 border border-surface-container-high/50">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Overdue projects</p>
                     <p className="mt-2 text-3xl font-bold text-on-surface">{dashboard?.risk_summary?.students_with_overdue_projects ?? 0}</p>
                   </div>
-                  <div className="rounded-2xl bg-surface-container-low p-4">
+                  <div className="rounded-xl bg-surface-container-low p-4 border border-surface-container-high/50">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Exam ≤ 48h</p>
                     <p className="mt-2 text-3xl font-bold text-on-surface">{dashboard?.risk_summary?.students_with_exam_within_48h ?? 0}</p>
                   </div>
@@ -431,11 +431,80 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
           </section>
+
+          <section>
+            <Card className="overflow-hidden border-none bg-surface-container-lowest shadow-sanctuary">
+              <CardHeader className="flex flex-row items-center justify-between pb-6">
+                <div>
+                  <CardTitle className="text-xl font-bold text-red-600">Students at Risk</CardTitle>
+                  <p className="text-xs text-on-surface-variant font-medium mt-1">
+                    Direct monitoring of individual student well-being and academic pressure.
+                    {selectedClassFilter && <span className="text-primary font-bold ml-1">(Filtering by: {selectedClassFilter})</span>}
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const filteredStudents = selectedClassFilter && dashboard?.risk_students 
+                    ? dashboard.risk_students.filter(s => s.class_name === selectedClassFilter)
+                    : dashboard?.risk_students || [];
+                  
+                  if (!filteredStudents.length) {
+                    return <EmptyState title="No students at risk" message="All students in this scope are doing well." />;
+                  }
+
+                  return (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-surface-container-high hover:bg-transparent">
+                            <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Student</TableHead>
+                            <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Class & Filiere</TableHead>
+                            <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-center">Avg Mood (7d)</TableHead>
+                            <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-center">Overdue Projects</TableHead>
+                            <TableHead className="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-right">Upcoming Exams</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredStudents.map((student) => (
+                            <TableRow key={student.student_id} className="border-surface-container-low transition-colors hover:bg-surface-container-low/50">
+                              <TableCell className="py-4 font-bold text-on-surface">{student.full_name}</TableCell>
+                              <TableCell className="py-4 text-on-surface-variant font-medium text-xs">
+                                <span className="font-bold text-on-surface">{student.class_name}</span> <br />
+                                {student.filiere_name}
+                              </TableCell>
+                              <TableCell className="py-4 text-center">
+                                <Badge variant={student.avg_mood_7d < 3 ? "destructive" : "warning"} className="rounded-lg shadow-sm">
+                                  {student.avg_mood_7d.toFixed(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-4 text-center">
+                                <span className={cn("text-sm font-bold", student.overdue_projects > 0 ? "text-red-600" : "text-on-surface-variant")}>
+                                  {student.overdue_projects > 0 ? student.overdue_projects : "-"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="py-4 text-right">
+                                {student.has_exam_within_48h ? (
+                                  <Badge className="bg-amber-100 text-amber-700 border-none shadow-none">Yes (≤ 48h)</Badge>
+                                ) : (
+                                  <span className="text-on-surface-variant/40">-</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </section>
         </>
       )}
 
       {dashboard?.classes_health?.length ? (
-        <div className="overflow-hidden rounded-3xl bg-primary px-8 py-6 text-on-primary shadow-sanctuary-lg relative">
+        <div className="overflow-hidden rounded-xl bg-primary px-8 py-6 text-on-primary shadow-sanctuary-lg relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-on-primary/70">Coverage snapshot</p>
           <div className="mt-4 flex flex-wrap items-center gap-8 text-sm">

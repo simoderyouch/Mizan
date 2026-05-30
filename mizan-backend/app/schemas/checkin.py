@@ -69,6 +69,7 @@ class PersonalizedCheckinQuestionsResponse(BaseModel):
     period: Literal["MORNING", "EVENING"]
     mode: Literal["qcm", "voice"]
     questions: List[CheckinQuestion]
+    source: Literal["llm", "fallback"] = "fallback"
 
 
 class MorningCheckinResponse(BaseModel):

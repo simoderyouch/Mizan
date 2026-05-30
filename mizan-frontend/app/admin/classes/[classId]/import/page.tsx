@@ -53,7 +53,7 @@ const IMPORT_CARDS: ImportCardConfig[] = [
   {
     key: "projects",
     title: "Projects import",
-    subtitle: "CSV columns: name,subject,due_date,members",
+    subtitle: "CSV columns: name,subject,due_date (team = whole class)",
     replaceSupported: true,
   },
 ];

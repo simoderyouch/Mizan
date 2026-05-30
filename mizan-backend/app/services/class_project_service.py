@@ -41,12 +41,44 @@ async def _get_class_student_ids(db: AsyncSession, class_id: UUID) -> Sequence[U
     return result.scalars().all()
 
 
+async def refresh_class_project_member_rosters(db: AsyncSession, class_id: UUID) -> int:
+    """Keep every class project’s team list aligned with the current student roster."""
+    roster = await class_project_member_names(db, class_id)
+    result = await db.execute(
+        select(Project)
+        .join(Student, Project.student_id == Student.id)
+        .where(Student.class_id == class_id)
+    )
+    rows = list(result.scalars().all())
+    for row in rows:
+        row.members = roster
+    if rows:
+        await db.commit()
+    return len(rows)
+
+
+async def class_project_member_names(db: AsyncSession, class_id: UUID) -> list[str]:
+    """Projects are class-wide: members are always the full student roster."""
+    result = await db.execute(
+        select(Student.first_name, Student.last_name)
+        .where(Student.class_id == class_id)
+        .order_by(Student.last_name.asc(), Student.first_name.asc())
+    )
+    names: list[str] = []
+    for first_name, last_name in result.all():
+        label = f"{str(first_name or '').strip()} {str(last_name or '').strip()}".strip()
+        if label:
+            names.append(label)
+    return names
+
+
 async def create_project_for_class(db: AsyncSession, current_user: User, class_id: UUID, data: ProjectCreate) -> int:
     _ensure_admin_scope(current_user, await _get_school_id_for_class(db, class_id))
     student_ids = await _get_class_student_ids(db, class_id)
     if not student_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Class has no students")
 
+    roster = await class_project_member_names(db, class_id)
     for student_id in student_ids:
         db.add(
             Project(
@@ -54,7 +86,7 @@ async def create_project_for_class(db: AsyncSession, current_user: User, class_i
                 name=data.name,
                 subject=data.subject,
                 due_date=data.due_date,
-                members=normalize_project_members(data.members),
+                members=roster,
             )
         )
 
@@ -122,6 +154,7 @@ async def update_project_entry(
             )
         )
 
+    roster = await class_project_member_names(db, class_id)
     rows = (await db.execute(query)).scalars().all()
     for row in rows:
         if data.name is not None:
@@ -130,8 +163,7 @@ async def update_project_entry(
             row.subject = data.subject
         if data.due_date is not None:
             row.due_date = data.due_date
-        if data.members is not None:
-            row.members = normalize_project_members(data.members)
+        row.members = roster
 
     await db.commit()
     return len(rows)
@@ -195,6 +227,7 @@ async def import_projects_from_csv(
         for row in existing.scalars().all():
             await db.delete(row)
 
+    roster = await class_project_member_names(db, class_id)
     count = 0
     for row in rows:
         due_date_obj = datetime.strptime(row.get("due_date", "2000-01-01"), "%Y-%m-%d").date()
@@ -206,7 +239,7 @@ async def import_projects_from_csv(
                     name=row.get("name", ""),
                     subject=row.get("subject", ""),
                     due_date=due_date_obj,
-                    members=normalize_project_members(row.get("members", [])),
+                    members=roster,
                 )
             )
             count += 1

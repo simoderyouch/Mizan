@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.agent_contract import AgentActionContract
 from app.models.task import Task
@@ -11,6 +12,55 @@ from app.services.notification_service import create_notification
 
 ADAPTIVE_LEVELS = ("standard", "gentle", "micro")
 CONTRACT_DEDUP_HOURS = 1
+
+TRIGGER_LABELS: dict[str, str] = {
+    "MORNING_CHECKIN": "After morning check-in",
+    "EVENING_CHECKIN": "After evening check-in",
+    "CHAT_TEXT": "From Mizan AI chat",
+    "CHAT_VOICE": "From Mizan AI voice",
+    "PERIODIC_SCAN": "Daily wellbeing scan",
+    "MANUAL_TEST": "System validation",
+    "FORCE_AFTER_LUNCH_RESET": "Focus reset suggestion",
+    "FORCE_HIGH_STRESS_EXAM_CRUNCH": "Exam pressure support",
+    "FORCE_HIGH_STRESS_BURNOUT_RISK": "Burnout prevention",
+    "FORCE_HIGH_STRESS_OVERDUE_SPIRAL": "Workload recovery",
+    "FORCE_MODE_SWITCH": "Focus mode suggestion",
+    "FORCE_RESOURCE_NUDGE": "Wellbeing resource",
+    "FORCE_ESCALATION": "Wellbeing escalation",
+    "FORCE_CHECKIN_REMINDER": "Check-in reminder",
+}
+
+
+def trigger_label_for(trigger_type: str | None) -> str:
+    if not trigger_type:
+        return "From Mizan AI"
+    normalized = str(trigger_type).strip().upper()
+    if normalized in TRIGGER_LABELS:
+        return TRIGGER_LABELS[normalized]
+    if "CHECKIN" in normalized:
+        return "After a check-in"
+    if "CHAT" in normalized:
+        return "From Mizan AI"
+    return normalized.replace("_", " ").title()
+
+
+def build_personalized_contract_text(
+    *,
+    task_title: str | None = None,
+    thought: str | None = None,
+    fallback: str,
+) -> str:
+    title = (task_title or "").strip()
+    summary = (thought or "").strip()
+    if len(summary) > 140:
+        summary = summary[:137].rstrip() + "…"
+    if title and summary:
+        return f"Commit to: {title}. {summary}"
+    if title:
+        return f"Commit to completing: {title}"
+    if summary:
+        return f"Commit now: {summary}"
+    return fallback.strip()
 
 
 def contract_minutes_for_level(level: str) -> int:
@@ -115,13 +165,38 @@ async def create_action_contract(
         student_id=student_id,
         title="Action contract",
         body=(
-            f"{contract.contract_text} Confirm within {minutes} minutes. "
-            "Use /agent/contracts to accept/decline."
+            f"{contract.contract_text} Respond within {minutes} minutes in AI commitments."
         ),
         notification_type="task",
-        payload={"contract_id": str(contract.id), "adaptive_level": level, "minutes": minutes},
+        payload={
+            "contract_id": str(contract.id),
+            "adaptive_level": level,
+            "minutes": minutes,
+            "href": f"/agent/contracts?highlight={contract.id}",
+        },
     )
     return contract
+
+
+async def expire_pending_contracts(
+    db: AsyncSession, *, student_id: UUID | None = None
+) -> int:
+    now = datetime.now(timezone.utc)
+    query = select(AgentActionContract).where(
+        and_(
+            AgentActionContract.status == "pending",
+            AgentActionContract.due_at < now,
+        )
+    )
+    if student_id:
+        query = query.where(AgentActionContract.student_id == student_id)
+    result = await db.execute(query)
+    contracts = list(result.scalars().all())
+    for contract in contracts:
+        contract.status = "expired"
+    if contracts:
+        await db.commit()
+    return len(contracts)
 
 
 async def list_action_contracts(
@@ -131,11 +206,23 @@ async def list_action_contracts(
     status_filter: str | None = None,
     limit: int = 30,
 ) -> list[AgentActionContract]:
+    await expire_pending_contracts(db, student_id=student_id)
     normalized_limit = max(1, min(limit, 100))
-    query = select(AgentActionContract).where(AgentActionContract.student_id == student_id)
+    query = (
+        select(AgentActionContract)
+        .where(AgentActionContract.student_id == student_id)
+        .options(
+            selectinload(AgentActionContract.run),
+            selectinload(AgentActionContract.task),
+        )
+    )
     if status_filter:
         query = query.where(AgentActionContract.status == status_filter)
-    query = query.order_by(AgentActionContract.created_at.desc()).limit(normalized_limit)
+    if status_filter in {"pending", "accepted"}:
+        query = query.order_by(AgentActionContract.due_at.asc())
+    else:
+        query = query.order_by(AgentActionContract.created_at.desc())
+    query = query.limit(normalized_limit)
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -146,34 +233,63 @@ async def respond_action_contract(
     student_id: UUID,
     contract_id: UUID,
     accepted: bool,
+    decline_reason: str | None = None,
 ) -> AgentActionContract:
     result = await db.execute(
-        select(AgentActionContract).where(
-            and_(AgentActionContract.id == contract_id, AgentActionContract.student_id == student_id)
-        )
+        select(AgentActionContract)
+        .where(and_(AgentActionContract.id == contract_id, AgentActionContract.student_id == student_id))
+        .options(selectinload(AgentActionContract.run), selectinload(AgentActionContract.task))
     )
     contract = result.scalars().first()
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+    if contract.status not in {"pending", "expired"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot respond to a contract with status '{contract.status}'",
+        )
 
     contract.status = "accepted" if accepted else "declined"
     contract.responded_at = datetime.now(timezone.utc)
+    contract.decline_reason = None if accepted else (decline_reason or None)
     await db.commit()
     await db.refresh(contract)
     return contract
 
 
 async def complete_action_contract(
-    db: AsyncSession, *, student_id: UUID, contract_id: UUID
+    db: AsyncSession,
+    *,
+    student_id: UUID,
+    contract_id: UUID,
+    from_pending: bool = False,
 ) -> AgentActionContract:
     result = await db.execute(
-        select(AgentActionContract).where(
-            and_(AgentActionContract.id == contract_id, AgentActionContract.student_id == student_id)
-        )
+        select(AgentActionContract)
+        .where(and_(AgentActionContract.id == contract_id, AgentActionContract.student_id == student_id))
+        .options(selectinload(AgentActionContract.run), selectinload(AgentActionContract.task))
     )
     contract = result.scalars().first()
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+
+    if contract.status == "completed":
+        return contract
+    if contract.status == "declined":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Declined commitments cannot be completed")
+    if contract.status == "expired" and not from_pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This commitment expired. Accept a new one when Mizan suggests it.",
+        )
+    if contract.status == "pending" and not from_pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Accept the commitment first, or mark complete anyway from the pending state",
+        )
+    if contract.status == "pending" and from_pending:
+        contract.status = "accepted"
+        contract.responded_at = contract.responded_at or datetime.now(timezone.utc)
 
     contract.status = "completed"
     contract.completed_at = datetime.now(timezone.utc)
@@ -191,6 +307,7 @@ async def complete_action_contract(
 async def process_due_contract_followups(
     db: AsyncSession, *, student_id: UUID | None = None, limit: int = 30
 ) -> int:
+    await expire_pending_contracts(db, student_id=student_id)
     now = datetime.now(timezone.utc)
     query = select(AgentActionContract).where(
         and_(
