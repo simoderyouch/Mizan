@@ -192,7 +192,7 @@ export default function ProfilePage() {
             <p className="text-sm text-on-surface-variant mt-0.5">
               Sign out on this device. You can sign back in anytime with your credentials.
             </p>
-            <Button variant="outline" onClick={logout} className="mt-4 w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800">
+            <Button variant="secondary" onClick={logout} className="mt-4 w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800">
               <LogOut className="h-4 w-4 mr-2" />
               Sign out
             </Button>

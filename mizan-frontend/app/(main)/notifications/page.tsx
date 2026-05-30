@@ -67,7 +67,7 @@ export default function NotificationsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
+          <Button variant="secondary" size="sm" onClick={() => void refresh()} disabled={isLoading}>
             <RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />
             Refresh
           </Button>

@@ -113,7 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   }, [router]);
 
-  const refreshStudent = fetchStudent;
+  const refreshStudent = useCallback(async () => {
+    await fetchStudent();
+  }, [fetchStudent]);
 
   return (
     <AuthContext.Provider
