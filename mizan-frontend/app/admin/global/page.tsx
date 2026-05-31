@@ -22,6 +22,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { useAdminSession } from "@/components/admin/admin-shell";
 import { analyticsApi, getApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { AdminDashboardResponse } from "@/lib/admin-types";
@@ -47,6 +48,7 @@ const KPI_CONFIG: Array<{
 ];
 
 export default function GlobalDashboardPage() {
+  const { ready } = useAdminSession();
   const [dashboard, setDashboard] = useState<AdminDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,8 +67,9 @@ export default function GlobalDashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!ready) return;
     void loadDashboard();
-  }, [loadDashboard]);
+  }, [loadDashboard, ready]);
 
   const trendData = useMemo(() => {
     if (!dashboard?.platform_trends?.length) return [];

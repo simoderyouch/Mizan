@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, Globe, Phone, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 
+import { useAdminSession } from "@/components/admin/admin-shell";
 import { globalApi, getApiErrorMessage } from "@/lib/api";
 import type { School } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 export default function GlobalVerificationPage() {
   const { toast } = useToast();
+  const { ready } = useAdminSession();
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -33,8 +35,9 @@ export default function GlobalVerificationPage() {
   };
 
   useEffect(() => {
+    if (!ready) return;
     void fetchPending();
-  }, []);
+  }, [ready]);
 
   const handleVerify = async (schoolId: string, status: "VERIFIED" | "REJECTED") => {
     setProcessingId(schoolId);

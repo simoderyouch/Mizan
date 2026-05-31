@@ -12,6 +12,7 @@ import {
   XCircle 
 } from "lucide-react";
 
+import { useAdminSession } from "@/components/admin/admin-shell";
 import { globalApi, getApiErrorMessage } from "@/lib/api";
 import type { School } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ import {
 
 export default function GlobalSchoolsPage() {
   const { toast } = useToast();
+  const { ready } = useAdminSession();
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -68,8 +70,9 @@ export default function GlobalSchoolsPage() {
   };
 
   useEffect(() => {
+    if (!ready) return;
     void fetchSchools();
-  }, []);
+  }, [ready]);
 
   const handleToggleActive = async (schoolId: string, currentStatus: string) => {
     const isCurrentlyActive = currentStatus === "VERIFIED";

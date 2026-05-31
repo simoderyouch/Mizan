@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -60,6 +60,20 @@ const GLOBAL_NAV_ITEMS: NavItem[] = [
 
 const isAdminRole = (role: string) => role.toUpperCase() === "ADMIN";
 
+interface AdminSessionContextValue {
+  user: CurrentUser | null;
+  ready: boolean;
+}
+
+const AdminSessionContext = createContext<AdminSessionContextValue>({
+  user: null,
+  ready: false,
+});
+
+export function useAdminSession() {
+  return useContext(AdminSessionContext);
+}
+
 export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -70,7 +84,7 @@ export function AdminShell({ children }: AdminShellProps) {
   const loadSession = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEYS.access);
     if (!token) {
-      router.replace("/login");
+      router.replace("/admin/login");
       return;
     }
 
@@ -86,14 +100,17 @@ export function AdminShell({ children }: AdminShellProps) {
         router.replace("/unauthorized");
         return;
       }
+
+      setCurrentUser(me);
+
       if (pathname === "/admin/dashboard" && !me.school_id) {
         router.replace("/admin/global");
-        return;
       }
-      setCurrentUser(me);
     } catch (error: unknown) {
       if (isApiStatus(error, 401)) {
-        router.replace("/login");
+        localStorage.removeItem(TOKEN_KEYS.access);
+        localStorage.removeItem(TOKEN_KEYS.refresh);
+        router.replace("/admin/login");
         return;
       }
       if (isApiStatus(error, 403)) {
@@ -104,7 +121,7 @@ export function AdminShell({ children }: AdminShellProps) {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [pathname, router]);
 
   useEffect(() => {
     void loadSession();
@@ -113,8 +130,13 @@ export function AdminShell({ children }: AdminShellProps) {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEYS.access);
     localStorage.removeItem(TOKEN_KEYS.refresh);
-    router.replace("/login");
+    router.replace("/admin/login");
   }, [router]);
+
+  const sessionValue = useMemo(
+    () => ({ user: currentUser, ready: Boolean(currentUser) && !loading }),
+    [currentUser, loading]
+  );
 
   const scopeLabel = useMemo(() => {
     if (!currentUser) return "";
@@ -174,7 +196,8 @@ export function AdminShell({ children }: AdminShellProps) {
   if (!currentUser) return null;
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface selection:bg-primary/10 selection:text-primary">
+    <AdminSessionContext.Provider value={sessionValue}>
+      <div className="min-h-screen bg-surface text-on-surface selection:bg-primary/10 selection:text-primary">
       <header className="sticky top-0 z-40 bg-surface-container-low/80 shadow-sm backdrop-blur-xl">
         <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 md:px-8">
           <div className="flex items-center gap-3">
@@ -317,6 +340,7 @@ export function AdminShell({ children }: AdminShellProps) {
       </header>
 
       <main className="mx-auto w-full max-w-screen-2xl px-4 py-5 md:px-8 md:py-8">{children}</main>
-    </div>
+      </div>
+    </AdminSessionContext.Provider>
   );
 }

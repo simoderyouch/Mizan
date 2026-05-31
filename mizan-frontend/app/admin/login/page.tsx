@@ -32,7 +32,8 @@ export default function AdminLoginPage() {
       const tokens = await authApi.login({ email, password });
       localStorage.setItem("mizan_access_token", tokens.access_token);
       localStorage.setItem("mizan_refresh_token", tokens.refresh_token);
-      router.push("/admin/dashboard");
+      const me = await authApi.me();
+      router.push(me.school_id ? "/admin/dashboard" : "/admin/global");
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, "Incorrect email or password."));
     } finally {
