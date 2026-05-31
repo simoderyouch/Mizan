@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ActiveModeBanner } from "@/components/modes/active-mode-banner";
 import { getApiErrorMessage, modesApi } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { modeLabel, formatMinutes } from "@/lib/utils";
 import type { Mode, ModeStats } from "@/lib/types";
 import {
   BookOpen, GraduationCap, FolderKanban, Coffee, Dumbbell, School,
-  Play, Square, Loader2, Clock,
+  Play, Loader2,
 } from "lucide-react";
 
 const MODE_CONFIG: Record<Mode, { icon: React.ElementType; color: string; bg: string }> = {
@@ -25,7 +26,6 @@ export default function ModesPage() {
   const [stats, setStats] = useState<ModeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
 
   const fetchStats = async () => {
@@ -43,16 +43,6 @@ export default function ModesPage() {
   useEffect(() => {
     void fetchStats();
   }, []);
-
-  // Timer for active session
-  useEffect(() => {
-    if (!stats?.current_session) return;
-    const start = new Date(stats.current_session.started_at).getTime();
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - start) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [stats?.current_session]);
 
   const startMode = async (mode: Mode) => {
     setActionLoading(true);
@@ -78,13 +68,6 @@ export default function ModesPage() {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const fmtTimer = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
   if (loading) {
@@ -115,32 +98,13 @@ export default function ModesPage() {
         </Card>
       )}
 
-      {/* Active Session */}
-      {stats?.current_session && (
-        <Card className="sanctuary-card-accent">
-          <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Clock className="h-6 w-6 animate-pulse-soft" />
-              <div>
-                <span className="label-sanctuary text-on-primary/70">Active mode</span>
-                <p className="text-xl font-bold">{modeLabel(stats.current_session.mode)}</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 w-full sm:w-auto">
-              <span className="text-xl sm:text-2xl font-mono font-bold">{fmtTimer(elapsed)}</span>
-              <Button
-                onClick={stopMode}
-                disabled={actionLoading}
-                variant="secondary"
-                className="!text-white !border-white/30"
-              >
-                <Square className="h-4 w-4 mr-2" />
-                Stop
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {stats?.current_session ? (
+        <ActiveModeBanner
+          session={stats.current_session}
+          onStop={stopMode}
+          stopping={actionLoading}
+        />
+      ) : null}
 
       {/* Mode Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

@@ -5,13 +5,14 @@ import Link from "next/link";
 import { DashboardWellbeingHero } from "@/components/checkin/dashboard-wellbeing-hero";
 import { DashboardCheckinDeepLink } from "@/components/checkin/dashboard-checkin-deeplink";
 import { DashboardScheduleCalendar } from "@/components/dashboard/dashboard-schedule-calendar";
+import { ActiveModeBanner } from "@/components/modes/active-mode-banner";
 import {
   COMMITMENTS_LABEL,
   clearPinnedCommitment,
   readPinnedCommitment,
   type PinnedCommitment,
 } from "@/lib/agent-commitments";
-import { agentApi, analyticsApi, getApiErrorMessage, studentsApi } from "@/lib/api";
+import { agentApi, analyticsApi, getApiErrorMessage, modesApi, studentsApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { getGreeting, formatDateShort, formatTimeString, modeLabel, formatDate } from "@/lib/utils";
 import type { AgentActionContract, ScheduleEntry, StudentContext, StudentDashboard, WeeklyReport } from "@/lib/types";
@@ -46,6 +47,7 @@ export default function DashboardPage() {
   const [pinnedCommitment, setPinnedCommitment] = useState<PinnedCommitment | null>(readPinnedCommitment);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [modeActionLoading, setModeActionLoading] = useState(false);
 
   const [mySchedules, setMySchedules] = useState<ScheduleEntry[]>([]);
 
@@ -157,6 +159,18 @@ export default function DashboardPage() {
   const hasEveningCheckin =
     dashboard?.has_evening_checkin ?? studentContext?.has_evening_checkin ?? false;
 
+  const stopMode = async () => {
+    setModeActionLoading(true);
+    try {
+      await modesApi.stop();
+      await fetchData();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, "Unable to stop the active mode."));
+    } finally {
+      setModeActionLoading(false);
+    }
+  };
+
   return (
     <div className="page-enter space-y-6">
       <Suspense fallback={null}>
@@ -173,6 +187,14 @@ export default function DashboardPage() {
           </p>
         )}
       </div>
+
+      {currentMode ? (
+        <ActiveModeBanner
+          session={currentMode}
+          onStop={stopMode}
+          stopping={modeActionLoading}
+        />
+      ) : null}
 
       {error && (
         <Card>

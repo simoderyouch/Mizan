@@ -29,6 +29,7 @@ from app.services.student_service import get_student_by_user_id
 router = APIRouter(prefix="/goals", tags=["Goals"])
 
 
+@router.post("", response_model=GoalResponse, include_in_schema=False)
 @router.post("/", response_model=GoalResponse)
 async def api_create_goal(
     data: GoalCreate,
@@ -39,6 +40,7 @@ async def api_create_goal(
     return await create_goal(db, student.id, data)
 
 
+@router.get("", response_model=List[GoalResponse], include_in_schema=False)
 @router.get("/", response_model=List[GoalResponse])
 async def api_get_student_goals(
     current_user: User = Depends(get_current_user),

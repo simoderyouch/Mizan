@@ -25,6 +25,7 @@ from uuid import UUID
 router = APIRouter(prefix="/resources", tags=["Resources"])
 
 
+@router.get("", response_model=List[ResourceResponse], include_in_schema=False)
 @router.get("/", response_model=List[ResourceResponse])
 async def api_get_all_resources(
     current_user: User = Depends(get_current_user),
@@ -53,6 +54,7 @@ async def api_get_resources_for_me(
     return await get_resources_for_mood(db, mood_score)
 
 
+@router.post("", response_model=ResourceResponse, include_in_schema=False, dependencies=[Depends(require_role(Role.ADMIN))])
 @router.post("/", response_model=ResourceResponse, dependencies=[Depends(require_role(Role.ADMIN))])
 async def api_create_resource(
     data: ResourceCreate,
