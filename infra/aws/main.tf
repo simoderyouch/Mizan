@@ -44,8 +44,10 @@ locals {
   subnet_ids        = slice(data.aws_subnets.default.ids, 0, local.subnet_count)
   backend_image     = "${aws_ecr_repository.backend.repository_url}:${var.backend_image_tag}"
   frontend_image    = "${aws_ecr_repository.frontend.repository_url}:${var.frontend_image_tag}"
-  public_origin     = "https://${aws_cloudfront_distribution.app.domain_name}"
-  effective_api_url = var.api_public_url != "" ? trim(var.api_public_url, "/") : local.public_origin
+  public_origin          = local.custom_public_origin != "" ? local.custom_public_origin : "https://${aws_cloudfront_distribution.app.domain_name}"
+  custom_public_origin   = var.app_domain != "" ? "https://${var.app_domain}" : (var.api_public_url != "" ? trim(var.api_public_url, "/") : "")
+  effective_api_url      = var.api_public_url != "" ? trim(var.api_public_url, "/") : local.public_origin
+  cloudfront_public_origin = "https://${aws_cloudfront_distribution.app.domain_name}"
   database_url      = "postgresql+asyncpg://${var.db_username}:${random_password.db_password.result}@${aws_db_instance.postgres.address}:5432/${var.db_name}"
 
   common_tags = {
@@ -371,6 +373,7 @@ resource "aws_cloudfront_distribution" "app" {
   comment             = "${local.name_prefix} app"
   price_class         = var.cloudfront_price_class
   wait_for_deployment = false
+  aliases             = var.app_domain != "" ? [var.app_domain] : []
 
   origin {
     domain_name = aws_lb.app.dns_name
@@ -400,8 +403,20 @@ resource "aws_cloudfront_distribution" "app" {
     }
   }
 
-  viewer_certificate {
-    cloudfront_default_certificate = true
+  dynamic "viewer_certificate" {
+    for_each = var.app_domain == "" ? [1] : []
+    content {
+      cloudfront_default_certificate = true
+    }
+  }
+
+  dynamic "viewer_certificate" {
+    for_each = var.app_domain != "" ? [1] : []
+    content {
+      acm_certificate_arn      = aws_acm_certificate.app[0].arn
+      ssl_support_method       = "sni-only"
+      minimum_protocol_version = "TLSv1.2_2021"
+    }
   }
 
   tags = local.common_tags

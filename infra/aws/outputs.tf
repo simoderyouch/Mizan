@@ -1,6 +1,6 @@
 output "app_url" {
   value       = local.public_origin
-  description = "Public CloudFront URL for the frontend and API."
+  description = "Public URL for the frontend and API (custom domain when configured)."
 }
 
 output "frontend_url" {
@@ -15,7 +15,12 @@ output "api_url" {
 
 output "api_health_url" {
   value       = "${local.effective_api_url}/health"
-  description = "Public backend health URL."
+  description = "Public backend health URL (custom domain when configured)."
+}
+
+output "api_health_check_url" {
+  value       = "${local.cloudfront_public_origin}/health"
+  description = "Health URL via CloudFront hostname. Use in CI before Namecheap DNS propagates."
 }
 
 output "cloudfront_distribution_id" {
@@ -26,6 +31,55 @@ output "cloudfront_distribution_id" {
 output "cloudfront_distribution_domain_name" {
   value       = aws_cloudfront_distribution.app.domain_name
   description = "CloudFront domain for the app."
+}
+
+output "app_domain" {
+  value       = var.app_domain != "" ? var.app_domain : null
+  description = "Configured custom domain, if any."
+}
+
+output "acm_validation_records" {
+  value = var.app_domain != "" ? [
+    for dvo in aws_acm_certificate.app[0].domain_validation_options : {
+      name  = dvo.resource_record_name
+      type  = dvo.resource_record_type
+      value = dvo.resource_record_value
+    }
+  ] : []
+  description = "Add these CNAME records in Namecheap to validate the ACM certificate."
+}
+
+output "namecheap_app_cname" {
+  value = var.app_domain != "" ? {
+    type        = "CNAME"
+    full_domain = var.app_domain
+    value       = aws_cloudfront_distribution.app.domain_name
+    note        = "In Namecheap Advanced DNS, Host is only the subdomain label (e.g. mizan for mizan.example.com)."
+  } : null
+  description = "CNAME record to point your subdomain at CloudFront."
+}
+
+output "dns_setup_instructions" {
+  value = var.app_domain != "" ? join("\n", concat(
+    [
+      "Custom domain: ${var.app_domain}",
+      "",
+      "Step 1 — ACM certificate validation (Namecheap Advanced DNS → CNAME):",
+    ],
+    [for dvo in aws_acm_certificate.app[0].domain_validation_options :
+      "  Name: ${dvo.resource_record_name}\n  Value: ${dvo.resource_record_value}"
+    ],
+    [
+      "",
+      "Step 2 — Point subdomain to CloudFront (after ACM cert is Issued):",
+      "  Type: CNAME",
+      "  Host: subdomain label only (e.g. mizan for ${var.app_domain})",
+      "  Value: ${aws_cloudfront_distribution.app.domain_name}",
+      "",
+      "Step 3 — Test: https://${var.app_domain}/health",
+    ]
+  )) : "No custom domain configured. Use app_url (CloudFront URL)."
+  description = "Human-readable DNS steps for Namecheap."
 }
 
 output "alb_dns_name" {

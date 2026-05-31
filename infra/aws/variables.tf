@@ -34,6 +34,12 @@ variable "api_public_url" {
   default     = ""
 }
 
+variable "app_domain" {
+  type        = string
+  description = "Optional custom app subdomain for CloudFront + ACM, e.g. mizan.example.com. Add DNS in Namecheap using terraform outputs."
+  default     = ""
+}
+
 variable "backend_container_port" {
   type        = number
   description = "Backend container port."

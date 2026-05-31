@@ -105,7 +105,10 @@ CLOUDINARY_API_KEY=<cloudinary-key>
 CLOUDINARY_API_SECRET=<cloudinary-secret>
 SMTP_USER=<smtp-user>
 SMTP_PASSWORD=<smtp-password>
+APP_PUBLIC_URL=https://mizan.yourdomain.com
 ```
+
+When `APP_PUBLIC_URL` is set, the deploy job prints ACM validation and app CNAME records for Namecheap in **Show deployment URLs**.
 
 If `BACKEND_SECRET_KEY` is empty, Terraform generates a strong one.
 

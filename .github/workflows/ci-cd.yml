@@ -121,6 +121,7 @@ jobs:
       TF_VAR_cloudinary_api_secret: ${{ secrets.CLOUDINARY_API_SECRET }}
       TF_VAR_smtp_user: ${{ secrets.SMTP_USER }}
       TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
+      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL }}
     steps:
       - name: Check AWS deploy configuration
         id: deploy_config
@@ -136,6 +137,16 @@ jobs:
             exit 0
           fi
           echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare custom domain terraform vars
+        if: steps.deploy_config.outputs.enabled == 'true'
+        run: |
+          if [ -n "$APP_PUBLIC_URL" ]; then
+            echo "TF_VAR_api_public_url=${APP_PUBLIC_URL}" >> "$GITHUB_ENV"
+            DOMAIN="$(printf '%s' "$APP_PUBLIC_URL" | sed -e 's#^https://##' -e 's#^http://##' -e 's#/.*##')"
+            echo "TF_VAR_app_domain=${DOMAIN}" >> "$GITHUB_ENV"
+            echo "Using custom domain: ${DOMAIN}"
+          fi
 
       - name: Checkout
         if: steps.deploy_config.outputs.enabled == 'true'
@@ -251,11 +262,13 @@ jobs:
         if: steps.deploy_config.outputs.enabled == 'true'
         working-directory: infra/aws
         run: |
-          HEALTH_URL="$(terraform output -raw api_health_url)"
-          for i in $(seq 1 20); do
+          HEALTH_URL="$(terraform output -raw api_health_check_url)"
+          echo "Checking ${HEALTH_URL} (first deploy may take several minutes for RDS + migrations)..."
+          for i in $(seq 1 40); do
             if curl -fsS "$HEALTH_URL"; then
               exit 0
             fi
+            echo "Attempt ${i}/40 failed, retrying in 15s..."
             sleep 15
           done
           exit 1
@@ -266,6 +279,9 @@ jobs:
         run: |
           echo "Frontend: $(terraform output -raw frontend_url)"
           echo "API: $(terraform output -raw api_url)"
+          echo "CloudFront health: $(terraform output -raw api_health_check_url)"
+          echo ""
+          terraform output -raw dns_setup_instructions
 
   destroy_aws:
     name: Destroy AWS
@@ -290,6 +306,7 @@ jobs:
       TF_VAR_cloudinary_api_secret: ${{ secrets.CLOUDINARY_API_SECRET }}
       TF_VAR_smtp_user: ${{ secrets.SMTP_USER }}
       TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
+      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL }}
     steps:
       - name: Check AWS destroy configuration
         run: |
@@ -300,6 +317,14 @@ jobs:
           if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AWS_REGION" ] || [ -z "$TF_STATE_BUCKET" ]; then
             echo "Missing AWS credentials or TF_STATE_BUCKET." >&2
             exit 1
+          fi
+
+      - name: Prepare custom domain terraform vars
+        run: |
+          if [ -n "$APP_PUBLIC_URL" ]; then
+            echo "TF_VAR_api_public_url=${APP_PUBLIC_URL}" >> "$GITHUB_ENV"
+            DOMAIN="$(printf '%s' "$APP_PUBLIC_URL" | sed -e 's#^https://##' -e 's#^http://##' -e 's#/.*##')"
+            echo "TF_VAR_app_domain=${DOMAIN}" >> "$GITHUB_ENV"
           fi
 
       - name: Checkout

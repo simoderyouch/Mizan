@@ -144,6 +144,14 @@ In GitHub: **Settings → Secrets and variables → Actions → Secrets**
 | `BACKEND_SECRET_KEY` | 32+ random characters |
 | `MISTRAL_API_KEY` | Required for agent + personalized check-ins |
 
+**Custom domain (optional):**
+
+| Secret | Example |
+|--------|---------|
+| `APP_PUBLIC_URL` | `https://mizan.yourdomain.com` |
+
+When set, Terraform requests an ACM certificate (us-east-1), attaches it to CloudFront, rebuilds the frontend with your URL, and prints Namecheap CNAME records in the deploy log. CI health checks use the CloudFront hostname until DNS propagates.
+
 **Optional:**
 
 | Secret | Notes |
