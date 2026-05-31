@@ -44,13 +44,14 @@ locals {
   subnet_ids        = slice(data.aws_subnets.default.ids, 0, local.subnet_count)
   backend_image     = "${aws_ecr_repository.backend.repository_url}:${var.backend_image_tag}"
   frontend_image    = "${aws_ecr_repository.frontend.repository_url}:${var.frontend_image_tag}"
-  public_origin          = local.custom_public_origin != "" ? local.custom_public_origin : "https://${aws_cloudfront_distribution.app.domain_name}"
-  custom_public_origin   = var.app_domain != "" ? "https://${var.app_domain}" : (var.api_public_url != "" ? trim(var.api_public_url, "/") : "")
-  effective_api_url      = var.api_public_url != "" ? trim(var.api_public_url, "/") : local.public_origin
-  cloudfront_public_origin = "https://${aws_cloudfront_distribution.app.domain_name}"
-  app_domain_cert_issued   = var.app_domain != "" && length(aws_acm_certificate.app) > 0 && aws_acm_certificate.app[0].status == "ISSUED"
+  custom_public_origin       = var.app_domain != "" ? "https://${var.app_domain}" : ""
+  cloudfront_public_origin   = "https://${aws_cloudfront_distribution.app.domain_name}"
+  # API always uses CloudFront; custom domain is frontend-only (browser URL + CORS).
+  effective_api_url          = var.api_public_url != "" ? trim(var.api_public_url, "/") : local.cloudfront_public_origin
+  public_origin              = local.custom_public_origin != "" ? local.custom_public_origin : local.cloudfront_public_origin
+  app_domain_cert_issued     = var.app_domain != "" && length(aws_acm_certificate.app) > 0 && aws_acm_certificate.app[0].status == "ISSUED"
   use_custom_cloudfront_domain = local.app_domain_cert_issued
-  frontend_build_api_url   = local.use_custom_cloudfront_domain ? local.effective_api_url : local.cloudfront_public_origin
+  frontend_build_api_url       = local.cloudfront_public_origin
   backend_cors_origins     = join(",", compact([
     local.cloudfront_public_origin,
     local.custom_public_origin != "" ? local.custom_public_origin : "",

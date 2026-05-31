@@ -10,7 +10,7 @@ output "frontend_url" {
 
 output "api_url" {
   value       = local.effective_api_url
-  description = "Public API base origin. API routes live under /api/v1."
+  description = "Public API base origin (CloudFront). API routes live under /api/v1."
 }
 
 output "api_health_url" {
@@ -35,7 +35,7 @@ output "cloudfront_distribution_domain_name" {
 
 output "frontend_build_api_url" {
   value       = local.frontend_build_api_url
-  description = "API origin baked into the frontend image. Uses CloudFront until ACM is Issued."
+  description = "API origin baked into the frontend image (always CloudFront)."
 }
 
 output "custom_domain_ready" {

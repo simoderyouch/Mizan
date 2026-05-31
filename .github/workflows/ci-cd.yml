@@ -142,10 +142,9 @@ jobs:
         if: steps.deploy_config.outputs.enabled == 'true'
         run: |
           if [ -n "$APP_PUBLIC_URL" ]; then
-            echo "TF_VAR_api_public_url=${APP_PUBLIC_URL}" >> "$GITHUB_ENV"
             DOMAIN="$(printf '%s' "$APP_PUBLIC_URL" | sed -e 's#^https://##' -e 's#^http://##' -e 's#/.*##')"
             echo "TF_VAR_app_domain=${DOMAIN}" >> "$GITHUB_ENV"
-            echo "Using custom domain: ${DOMAIN}"
+            echo "Using custom frontend domain: ${DOMAIN} (API stays on CloudFront)"
           fi
 
       - name: Checkout
@@ -325,7 +324,6 @@ jobs:
       - name: Prepare custom domain terraform vars
         run: |
           if [ -n "$APP_PUBLIC_URL" ]; then
-            echo "TF_VAR_api_public_url=${APP_PUBLIC_URL}" >> "$GITHUB_ENV"
             DOMAIN="$(printf '%s' "$APP_PUBLIC_URL" | sed -e 's#^https://##' -e 's#^http://##' -e 's#/.*##')"
             echo "TF_VAR_app_domain=${DOMAIN}" >> "$GITHUB_ENV"
           fi
