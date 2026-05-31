@@ -51,7 +51,8 @@ locals {
   public_origin              = local.custom_public_origin != "" ? local.custom_public_origin : local.cloudfront_public_origin
   app_domain_cert_issued     = var.app_domain != "" && length(aws_acm_certificate.app) > 0 && aws_acm_certificate.app[0].status == "ISSUED"
   use_custom_cloudfront_domain = local.app_domain_cert_issued
-  frontend_build_api_url       = local.cloudfront_public_origin
+  frontend_build_api_url           = "same-origin"
+  frontend_build_backend_origin    = local.cloudfront_public_origin
   backend_cors_origins     = join(",", compact([
     local.cloudfront_public_origin,
     local.custom_public_origin != "" ? local.custom_public_origin : "",
@@ -541,7 +542,8 @@ resource "aws_ecs_task_definition" "frontend" {
     }]
     environment = [
       { name = "NEXT_PUBLIC_API_URL", value = local.frontend_build_api_url },
-      { name = "NEXT_PUBLIC_WS_URL", value = "${replace(local.frontend_build_api_url, "https://", "wss://")}/api/v1/voice/realtime" },
+      { name = "NEXT_PUBLIC_BACKEND_ORIGIN", value = local.frontend_build_backend_origin },
+      { name = "NEXT_PUBLIC_WS_URL", value = "${replace(local.frontend_build_backend_origin, "https://", "wss://")}/api/v1/voice/realtime" },
       { name = "NEXT_PUBLIC_AI_VOICE_VOLUME", value = "1" },
       { name = "NEXT_PUBLIC_AI_VOICE_BOOST", value = "1.8" }
     ]

@@ -35,7 +35,12 @@ output "cloudfront_distribution_domain_name" {
 
 output "frontend_build_api_url" {
   value       = local.frontend_build_api_url
-  description = "API origin baked into the frontend image (always CloudFront)."
+  description = "API mode baked into the frontend image (same-origin in production)."
+}
+
+output "frontend_build_backend_origin" {
+  value       = local.frontend_build_backend_origin
+  description = "Direct backend origin for WebSockets and health checks (CloudFront)."
 }
 
 output "custom_domain_ready" {
