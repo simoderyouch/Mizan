@@ -33,6 +33,21 @@ output "cloudfront_distribution_domain_name" {
   description = "CloudFront domain for the app."
 }
 
+output "frontend_build_api_url" {
+  value       = local.frontend_build_api_url
+  description = "API origin baked into the frontend image. Uses CloudFront until ACM is Issued."
+}
+
+output "custom_domain_ready" {
+  value       = local.use_custom_cloudfront_domain
+  description = "True when ACM is Issued and CloudFront serves the custom domain."
+}
+
+output "acm_certificate_status" {
+  value       = var.app_domain != "" ? aws_acm_certificate.app[0].status : null
+  description = "ACM certificate status. Must be ISSUED before custom HTTPS domain works."
+}
+
 output "app_domain" {
   value       = var.app_domain != "" ? var.app_domain : null
   description = "Configured custom domain, if any."
@@ -77,6 +92,8 @@ output "dns_setup_instructions" {
       "  Value: ${aws_cloudfront_distribution.app.domain_name}",
       "",
       "Step 3 — Test: https://${var.app_domain}/health",
+      "",
+      "Step 4 — Re-run GitHub Actions deploy after ACM shows Issued (custom domain attaches automatically).",
     ]
   )) : "No custom domain configured. Use app_url (CloudFront URL)."
   description = "Human-readable DNS steps for Namecheap."

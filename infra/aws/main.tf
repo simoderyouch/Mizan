@@ -48,6 +48,13 @@ locals {
   custom_public_origin   = var.app_domain != "" ? "https://${var.app_domain}" : (var.api_public_url != "" ? trim(var.api_public_url, "/") : "")
   effective_api_url      = var.api_public_url != "" ? trim(var.api_public_url, "/") : local.public_origin
   cloudfront_public_origin = "https://${aws_cloudfront_distribution.app.domain_name}"
+  app_domain_cert_issued   = var.app_domain != "" && length(aws_acm_certificate.app) > 0 && aws_acm_certificate.app[0].status == "ISSUED"
+  use_custom_cloudfront_domain = local.app_domain_cert_issued
+  frontend_build_api_url   = local.use_custom_cloudfront_domain ? local.effective_api_url : local.cloudfront_public_origin
+  backend_cors_origins     = join(",", compact([
+    local.cloudfront_public_origin,
+    local.custom_public_origin != "" ? local.custom_public_origin : "",
+  ]))
   database_url      = "postgresql+asyncpg://${var.db_username}:${random_password.db_password.result}@${aws_db_instance.postgres.address}:5432/${var.db_name}"
 
   common_tags = {
@@ -69,7 +76,7 @@ locals {
     ALGORITHM                        = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES      = tostring(var.access_token_expire_minutes)
     REFRESH_TOKEN_EXPIRE_DAYS        = tostring(var.refresh_token_expire_days)
-    BACKEND_CORS_ORIGINS             = local.public_origin
+    BACKEND_CORS_ORIGINS             = local.backend_cors_origins
     ENABLE_SCHEDULER                 = tostring(var.enable_scheduler)
     AUTH_RATE_LIMIT_MAX_REQUESTS     = tostring(var.auth_rate_limit_max_requests)
     AUTH_RATE_LIMIT_WINDOW_SECONDS   = tostring(var.auth_rate_limit_window_seconds)
@@ -373,7 +380,7 @@ resource "aws_cloudfront_distribution" "app" {
   comment             = "${local.name_prefix} app"
   price_class         = var.cloudfront_price_class
   wait_for_deployment = false
-  aliases             = var.app_domain != "" ? [var.app_domain] : []
+  aliases             = local.use_custom_cloudfront_domain ? [var.app_domain] : []
 
   origin {
     domain_name = aws_lb.app.dns_name
@@ -404,18 +411,18 @@ resource "aws_cloudfront_distribution" "app" {
   }
 
   dynamic "viewer_certificate" {
-    for_each = var.app_domain == "" ? [1] : []
-    content {
-      cloudfront_default_certificate = true
-    }
-  }
-
-  dynamic "viewer_certificate" {
-    for_each = var.app_domain != "" ? [1] : []
+    for_each = local.use_custom_cloudfront_domain ? [1] : []
     content {
       acm_certificate_arn      = aws_acm_certificate.app[0].arn
       ssl_support_method       = "sni-only"
       minimum_protocol_version = "TLSv1.2_2021"
+    }
+  }
+
+  dynamic "viewer_certificate" {
+    for_each = local.use_custom_cloudfront_domain ? [] : [1]
+    content {
+      cloudfront_default_certificate = true
     }
   }
 
@@ -531,8 +538,8 @@ resource "aws_ecs_task_definition" "frontend" {
       protocol      = "tcp"
     }]
     environment = [
-      { name = "NEXT_PUBLIC_API_URL", value = local.effective_api_url },
-      { name = "NEXT_PUBLIC_WS_URL", value = "${replace(local.effective_api_url, "https://", "wss://")}/api/v1/voice/realtime" },
+      { name = "NEXT_PUBLIC_API_URL", value = local.frontend_build_api_url },
+      { name = "NEXT_PUBLIC_WS_URL", value = "${replace(local.frontend_build_api_url, "https://", "wss://")}/api/v1/voice/realtime" },
       { name = "NEXT_PUBLIC_AI_VOICE_VOLUME", value = "1" },
       { name = "NEXT_PUBLIC_AI_VOICE_BOOST", value = "1.8" }
     ]

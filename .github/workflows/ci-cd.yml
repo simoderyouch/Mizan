@@ -236,7 +236,7 @@ jobs:
         if: steps.deploy_config.outputs.enabled == 'true'
         working-directory: infra/aws
         run: |
-          API_URL="$(terraform output -raw api_url)"
+          API_URL="$(terraform output -raw frontend_build_api_url)"
           ECR_REPOSITORY_URL="$(terraform output -raw frontend_ecr_repository_url)"
           cd ../..
           docker build \
@@ -279,7 +279,10 @@ jobs:
         run: |
           echo "Frontend: $(terraform output -raw frontend_url)"
           echo "API: $(terraform output -raw api_url)"
+          echo "Frontend build API: $(terraform output -raw frontend_build_api_url)"
           echo "CloudFront health: $(terraform output -raw api_health_check_url)"
+          echo "ACM status: $(terraform output -raw acm_certificate_status 2>/dev/null || echo n/a)"
+          echo "Custom domain ready: $(terraform output -raw custom_domain_ready 2>/dev/null || echo false)"
           echo ""
           terraform output -raw dns_setup_instructions
 
