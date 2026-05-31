@@ -206,7 +206,7 @@ variable "auth_rate_limit_window_seconds" {
 variable "max_image_upload_bytes" {
   type        = number
   description = "Maximum image upload size."
-  default     = 5242880
+  default     = 10485760
 }
 
 variable "max_audio_upload_bytes" {

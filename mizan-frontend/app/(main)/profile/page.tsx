@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { authApi, filesApi, getApiErrorMessage } from "@/lib/api";
+import { prepareProfilePhotoUpload } from "@/lib/image-upload";
 import { useToast } from "@/components/ui/use-toast";
 import { formatDateShort } from "@/lib/utils";
 
@@ -53,7 +54,8 @@ export default function ProfilePage() {
     setPhotoUploading(true);
 
     try {
-      await filesApi.uploadMyPhoto(file);
+      const prepared = await prepareProfilePhotoUpload(file);
+      await filesApi.uploadMyPhoto(prepared);
       await refreshStudent();
       toast({
         title: "Photo updated",
