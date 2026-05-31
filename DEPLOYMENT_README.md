@@ -152,6 +152,8 @@ In GitHub: **Settings → Secrets and variables → Actions → Secrets**
 
 When set, Terraform requests an ACM certificate (us-east-1), attaches it to CloudFront, rebuilds the frontend with your URL, and prints Namecheap CNAME records in the deploy log. CI health checks use the CloudFront hostname until DNS propagates.
 
+Demo data is seeded automatically on first backend startup (`SEED_DEMO_DATA=true` by default): school ENSET, admin accounts, and student personas. Password for all demo users: `Mizan@2026!` (see `login_info.txt`).
+
 **Optional:**
 
 | Secret | Notes |

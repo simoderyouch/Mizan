@@ -78,6 +78,7 @@ locals {
     REFRESH_TOKEN_EXPIRE_DAYS        = tostring(var.refresh_token_expire_days)
     BACKEND_CORS_ORIGINS             = local.backend_cors_origins
     ENABLE_SCHEDULER                 = tostring(var.enable_scheduler)
+    SEED_DEMO_DATA                   = tostring(var.seed_demo_data)
     AUTH_RATE_LIMIT_MAX_REQUESTS     = tostring(var.auth_rate_limit_max_requests)
     AUTH_RATE_LIMIT_WINDOW_SECONDS   = tostring(var.auth_rate_limit_window_seconds)
     MAX_IMAGE_UPLOAD_BYTES           = tostring(var.max_image_upload_bytes)

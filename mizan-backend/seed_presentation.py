@@ -1,26 +1,29 @@
 import asyncio
 from datetime import date, datetime, time, timedelta, timezone
 from passlib.context import CryptContext
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 from app.core.database import AsyncSessionLocal
 from app.models.user import User, Role
 from app.models.institution import School, Filiere, Promotion, Class
-from app.models.student import Student, Schedule, Exam, Project
+from app.models.student import Student, Exam, Project
 from app.models.checkin import MorningCheckin, EveningCheckin
 from app.models.goal import Goal, GoalProgress
 from app.models.task import Task
-from app.models.mode_session import Mode, ModeSession
+from app.services.schedule_seed_service import seed_schedules_for_students
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 default_password = pwd_context.hash("Mizan@2026!")
 
-def _weekday(offset_days: int) -> str:
-    return (date.today() + timedelta(days=offset_days)).strftime("%A")
-
 async def seed_presentation():
     async with AsyncSessionLocal() as db:
+        existing_users = await db.scalar(select(func.count()).select_from(User))
+        if existing_users and existing_users > 0:
+            print("Demo seed skipped: database already contains users.")
+            return
+
         today = date.today()
         now = datetime.now(timezone.utc)
+        student_ids: list = []
 
         # 1. Global Admin
         global_admin = User(email="admin@mizan.ai", password_hash=default_password, is_active=True, role=Role.ADMIN)
@@ -80,6 +83,7 @@ async def seed_presentation():
             s = Student(user_id=u.id, first_name=p["first"], last_name=p["last"], class_id=p["class_id"], cne=f"CNE_{p['first']}")
             db.add(s)
             await db.flush()
+            student_ids.append(s.id)
 
             # Goals
             goals = [
@@ -121,8 +125,12 @@ async def seed_presentation():
             db.add(Project(student_id=s.id, name="Mizan Backend", subject="Web Dev", due_date=today + timedelta(days=5), members={"team": ["You", "Others"]}))
             db.add(Task(student_id=s.id, title="Fix CORS issues", due_date=today, source="chat", status="done" if p['first'] == 'Yassine' else "pending"))
 
+        if student_ids:
+            await seed_schedules_for_students(db, student_ids, replace=True)
+
         await db.commit()
         print("Presentation data successfully seeded!")
+        print("Demo logins: admin@mizan.ai, admin@enset.ma, nizar@enset.ma, yassine@enset.ma, meriem@enset.ma (password: Mizan@2026!)")
 
 if __name__ == "__main__":
     asyncio.run(seed_presentation())
