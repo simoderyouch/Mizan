@@ -252,7 +252,9 @@ jobs:
           terraform apply -auto-approve -var="frontend_image_tag=${GITHUB_SHA}"
           CLUSTER="$(terraform output -raw ecs_cluster_name)"
           FRONTEND_SERVICE="$(terraform output -raw frontend_ecs_service_name)"
+          BACKEND_SERVICE="$(terraform output -raw backend_ecs_service_name)"
           aws ecs update-service --cluster "$CLUSTER" --service "$FRONTEND_SERVICE" --force-new-deployment
+          aws ecs update-service --cluster "$CLUSTER" --service "$BACKEND_SERVICE" --force-new-deployment
 
       - name: Invalidate frontend cache
         if: steps.deploy_config.outputs.enabled == 'true'

@@ -5,7 +5,7 @@ import { Mic, Square, Loader2, Volume2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatTaskSuggestions } from "@/components/agent/chat/chat-task-suggestions";
 import { useToast } from "@/components/ui/use-toast";
-import { BACKEND_ORIGIN, authApi, getApiErrorMessage, tasksApi, voiceApi } from "@/lib/api";
+import { authApi, getApiErrorMessage, resolveDirectBackendOrigin, tasksApi, voiceApi } from "@/lib/api";
 import { AgentChatMessage, ChatTaskSuggestion } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { RichTextMessage } from "@/components/agent/rich-text-message";
@@ -169,7 +169,7 @@ export function VoiceCompanion() {
     if (typeof window === "undefined") return "";
     const token = window.localStorage.getItem("mizan_access_token");
     if (!token) return "";
-    const wsBase = BACKEND_ORIGIN.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
+    const wsBase = resolveDirectBackendOrigin().replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
     return `${wsBase}/api/v1/voice/realtime?token=${encodeURIComponent(token)}`;
   };
 

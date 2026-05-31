@@ -122,6 +122,16 @@ export const API_BASE_URL = API_ORIGIN ? `${API_ORIGIN}${API_PREFIX}` : API_PREF
 
 const isBrowser = () => typeof window !== "undefined";
 
+/** Direct HTTP origin for WebSockets and long-running calls (browser-safe in production). */
+export const resolveDirectBackendOrigin = (): string => {
+  const configured = process.env.NEXT_PUBLIC_BACKEND_ORIGIN?.trim();
+  if (configured) return trimTrailingSlashes(configured);
+  if (API_USES_PROXY && isBrowser()) {
+    return trimTrailingSlashes(window.location.origin);
+  }
+  return API_ORIGIN || BACKEND_ORIGIN;
+};
+
 const getStoredAccessToken = () => (isBrowser() ? localStorage.getItem(ACCESS_TOKEN_KEY) : null);
 const getStoredRefreshToken = () => (isBrowser() ? localStorage.getItem(REFRESH_TOKEN_KEY) : null);
 
@@ -284,7 +294,7 @@ export function getApiErrorMessage(
     if (error.code === "ECONNABORTED") {
       return "La requête a expiré. Le serveur met trop de temps à répondre (voix / IA).";
     }
-    return `Impossible de joindre le serveur (${BACKEND_ORIGIN}). Lancez le backend : docker compose up -d db backend — puis rechargez la page.`;
+    return `Impossible de joindre le serveur (${resolveDirectBackendOrigin()}). Lancez le backend : docker compose up -d db backend — puis rechargez la page.`;
   }
 
   const data = error.response?.data;
@@ -331,10 +341,7 @@ export const resolveNotificationsWsOrigin = (): string => {
   if (wsOverride) {
     return trimTrailingSlashes(wsOverride.replace(/^ws:\/\//i, "http://").replace(/^wss:\/\//i, "https://"));
   }
-  if (API_USES_PROXY) {
-    return BACKEND_ORIGIN;
-  }
-  return API_ORIGIN || BACKEND_ORIGIN;
+  return resolveDirectBackendOrigin();
 };
 
 type MizanRequestConfig = AxiosRequestConfig & {
@@ -349,7 +356,7 @@ const resolveRequestConfig = (config: MizanRequestConfig): AxiosRequestConfig =>
   const { directBackend: _directBackend, ...rest } = config;
   return {
     ...rest,
-    baseURL: `${BACKEND_ORIGIN}${API_PREFIX}`,
+    baseURL: `${resolveDirectBackendOrigin()}${API_PREFIX}`,
     timeout: rest.timeout ?? 120_000,
   };
 };
@@ -361,7 +368,7 @@ const request = async <T>(config: MizanRequestConfig): Promise<T> => {
 
 const requestRoot = async <T>(config: AxiosRequestConfig): Promise<T> => {
   const response = await axios.request<T>({
-    baseURL: BACKEND_ORIGIN,
+    baseURL: resolveDirectBackendOrigin(),
     headers: { Accept: "application/json" },
     ...config,
   });
