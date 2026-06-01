@@ -84,9 +84,10 @@ async def get_mode_distribution(db: AsyncSession, student_id: UUID, days: int = 
 
 
 async def get_weekly_report(db: AsyncSession, student_id: UUID) -> WeeklyReport:
+    """Last 7 calendar days (today and the six before), aligned with mood trend and demo seed."""
     today = date.today()
-    week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=6)
+    week_end = today
+    week_start = today - timedelta(days=6)
     
     morning_res = await db.execute(
         select(MorningCheckin).where(
@@ -121,13 +122,20 @@ async def get_weekly_report(db: AsyncSession, student_id: UUID) -> WeeklyReport:
         
     goals_res = await db.execute(select(Goal).where(Goal.student_id == student_id, Goal.is_active == True))
     goals = goals_res.scalars().all()
-    
-    prog_res = await db.execute(
-        select(GoalProgress).where(
-            and_(GoalProgress.date >= week_start, GoalProgress.date <= week_end)
+    goal_ids = [g.id for g in goals]
+
+    progresses = []
+    if goal_ids:
+        prog_res = await db.execute(
+            select(GoalProgress).where(
+                and_(
+                    GoalProgress.goal_id.in_(goal_ids),
+                    GoalProgress.date >= week_start,
+                    GoalProgress.date <= week_end,
+                )
+            )
         )
-    )
-    progresses = prog_res.scalars().all()
+        progresses = prog_res.scalars().all()
     
     prog_map = {}
     for p in progresses:
