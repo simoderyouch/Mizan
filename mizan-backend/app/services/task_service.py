@@ -60,8 +60,10 @@ def _extract_chat_response_text(response) -> str:
 
 
 def _fallback_suggestions(user_message: str, assistant_message: str) -> list[TaskSuggestionItem]:
+    lowered = (user_message or "").lower()
+    if not lowered:
+        return []
     combined = f"{assistant_message}\n{user_message}"
-    lowered = combined.lower()
     task_intent_markers = [
         "study plan",
         "revision plan",
@@ -113,6 +115,56 @@ def _fallback_suggestions(user_message: str, assistant_message: str) -> list[Tas
         if len(parsed) >= 5:
             break
     return parsed
+
+
+_CASUAL_GREETING_RE = re.compile(
+    r"^(?:"
+    r"hey(?:\s+there|\s+mizan)?|hi(?:\s+there|\s+mizan)?|hello(?:\s+there|\s+mizan)?|"
+    r"yo|sup|what(?:'s| is) up|howdy|"
+    r"salut(?:\s+mizan)?|bonjour(?:\s+mizan)?|bonsoir|coucou|"
+    r"good\s+(?:morning|afternoon|evening|night)"
+    r")[!?.…\s]*$",
+    re.IGNORECASE,
+)
+
+_CASUAL_REPLY_WORDS = frozenset(
+    {
+        "hey",
+        "hi",
+        "hello",
+        "thanks",
+        "thank",
+        "you",
+        "ok",
+        "okay",
+        "cool",
+        "nice",
+        "great",
+        "yes",
+        "no",
+        "sure",
+        "bye",
+        "goodbye",
+        "yep",
+        "nope",
+        "salut",
+        "bonjour",
+        "coucou",
+    }
+)
+
+
+def _is_casual_message(user_message: str) -> bool:
+    cleaned = _clean_text(user_message).lower()
+    if not cleaned:
+        return True
+    if _CASUAL_GREETING_RE.match(cleaned):
+        return True
+    words = [re.sub(r"^[^\w]+|[^\w]+$", "", w) for w in cleaned.split()]
+    words = [w for w in words if w]
+    if len(words) <= 3 and not _has_explicit_task_request(user_message):
+        return all(w in _CASUAL_REPLY_WORDS for w in words)
+    return False
 
 
 def _is_general_support_message(user_message: str) -> bool:
@@ -173,63 +225,27 @@ def _has_explicit_task_request(user_message: str) -> bool:
         "donne moi un plan",
         "donne-moi des taches",
         "donne-moi des tâches",
+        "add to my tasks",
+        "add these to my tasks",
+        "create tasks",
+        "turn this into tasks",
+        "break this down",
+        "help me prioritize",
+        "prioritize my",
     ]
     return any(marker in lowered for marker in explicit_markers)
 
 
-def _assistant_has_actionable_steps(assistant_message: str) -> bool:
-    text = _strip_markdown((assistant_message or "").strip().lower())
-    if not text:
-        return False
-    lines = [line.strip() for line in re.split(r"[\n\r]+", text) if line.strip()]
-    if len(lines) < 2:
-        return False
-    actionable_verbs = (
-        "review",
-        "revise",
-        "solve",
-        "practice",
-        "plan",
-        "organize",
-        "summarize",
-        "read",
-        "write",
-        "prepare",
-        "complete",
-        "finish",
-        "start",
-        "work on",
-        "do ",
-        "revoir",
-        "resoudre",
-        "résoudre",
-        "organiser",
-        "prepare",
-        "préparer",
-        "completer",
-        "compléter",
-    )
-    bullet_like = 0
-    for line in lines:
-        normalized = re.sub(r"^[-*•\d\.\)\s]+", "", line).strip()
-        normalized = _strip_markdown(normalized)
-        if len(normalized.split()) < 3:
-            continue
-        if any(normalized.startswith(v) for v in actionable_verbs):
-            bullet_like += 1
-        elif any(f" {v}" in normalized for v in (" next step", " task", " tâches", " taches")):
-            bullet_like += 1
-    return bullet_like >= 2
-
-
 async def suggest_tasks_from_chat(student_name: str, user_message: str, assistant_message: str) -> list[TaskSuggestionItem]:
     explicit_request = _has_explicit_task_request(user_message)
-    actionable_assistant = _assistant_has_actionable_steps(assistant_message)
+
+    if _is_casual_message(user_message) and not explicit_request:
+        return []
 
     if _is_general_support_message(user_message) and not explicit_request:
         return []
 
-    if not explicit_request and not actionable_assistant:
+    if not explicit_request:
         return []
 
     fallback = _fallback_suggestions(user_message, assistant_message)
@@ -246,11 +262,9 @@ Rules:
 - Keep each title <= 120 chars and actionable.
 - Do not return reminders that are already done.
 - Prefer near-term tasks for today/tonight.
-- Set "should_suggest_tasks" true when either:
-  1) the user explicitly asks for a plan/tasks/next steps, OR
-  2) the assistant message already contains concrete actionable steps that can be converted to tasks.
-- Set "should_suggest_tasks" to false when the conversation is general discussion, emotional support, explanation, or does not include concrete next actions.
-- Be conservative: only suggest tasks when there are clear actionable commitments.
+- Set "should_suggest_tasks" true ONLY when the user explicitly asked for a plan, tasks, next steps, or help organizing work.
+- Set "should_suggest_tasks" to false for greetings, small talk, emotional support, explanations, or when the user did not ask for tasks — even if the assistant listed suggestions on its own.
+- Be conservative: return zero tasks unless the user's message clearly requested task planning.
 
 Student: {student_name}
 User message: {user_message}
@@ -268,7 +282,7 @@ Assistant message: {assistant_message}
         payload = json.loads(raw)
         should_suggest = bool(payload.get("should_suggest_tasks", False)) if isinstance(payload, dict) else False
         if not should_suggest:
-            return fallback if (explicit_request or actionable_assistant) else []
+            return fallback if explicit_request else []
         items = payload.get("tasks", []) if isinstance(payload, dict) else []
         suggestions: list[TaskSuggestionItem] = []
         seen: set[str] = set()
@@ -307,8 +321,9 @@ async def list_tasks(
 
 
 async def create_tasks(db: AsyncSession, student_id: UUID, payload: TaskBulkCreate) -> List[Task]:
+    items = list(payload.tasks)[: max(1, settings.CHAT_TASK_BULK_MAX)]
     created: list[Task] = []
-    for item in payload.tasks:
+    for item in items:
         title = _clean_text(item.title)
         if not title:
             continue
@@ -330,18 +345,22 @@ async def create_tasks(db: AsyncSession, student_id: UUID, payload: TaskBulkCrea
     await db.commit()
     for task in created:
         await db.refresh(task)
-        # Notify student about the new task
+
+    if created:
         try:
+            titles = ", ".join(task.title for task in created[:3])
+            extra = len(created) - 3
+            summary = titles if extra <= 0 else f"{titles} (+{extra} more)"
             await create_notification(
                 db,
                 student_id=student_id,
-                title="New Task Created",
-                body=f"A new task has been added: {task.title}",
+                title="New tasks added",
+                body=f"{len(created)} task(s) added: {summary}",
                 notification_type="task",
-                payload={"task_id": str(task.id), "source": task.source}
+                payload={"source": created[0].source, "count": len(created)},
+                cooldown_hours=2,
             )
         except Exception:
-            # Don't fail task creation if notification fails
             pass
     return created
 

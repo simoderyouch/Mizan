@@ -11,10 +11,10 @@ from app.services.autonomous_events import build_periodic_scan_event, publish_au
 logger = logging.getLogger(__name__)
 
 
-MINUTES_AFTER_VISIBLE_ACTION = 5
-MINUTES_AFTER_ESCALATION = 8
-MINUTES_AFTER_NO_VISIBLE_ACTION = 5
-MINUTES_AFTER_SKIPPED_RUN = 8
+MINUTES_AFTER_VISIBLE_ACTION = 45
+MINUTES_AFTER_ESCALATION = 12 * 60
+MINUTES_AFTER_NO_VISIBLE_ACTION = 30
+MINUTES_AFTER_SKIPPED_RUN = 30
 
 
 class AutonomousScheduler:
@@ -156,5 +156,5 @@ class AutonomousScheduler:
         elapsed = (now - run.created_at).total_seconds() / 60
         return elapsed >= minutes
 
-# Global instance (every 5 minutes)
-scheduler = AutonomousScheduler(interval_minutes=5)
+# Global instance (every 15 minutes)
+scheduler = AutonomousScheduler(interval_minutes=15)

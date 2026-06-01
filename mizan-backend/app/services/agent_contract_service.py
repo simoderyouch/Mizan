@@ -11,7 +11,7 @@ from app.models.task import Task
 from app.services.notification_service import create_notification
 
 ADAPTIVE_LEVELS = ("standard", "gentle", "micro")
-CONTRACT_DEDUP_HOURS = 1
+CONTRACT_DEDUP_HOURS = 12
 
 TRIGGER_LABELS: dict[str, str] = {
     "MORNING_CHECKIN": "After morning check-in",
@@ -174,6 +174,7 @@ async def create_action_contract(
             "minutes": minutes,
             "href": f"/agent/contracts?highlight={contract.id}",
         },
+        cooldown_hours=12,
     )
     return contract
 
@@ -318,7 +319,7 @@ async def process_due_contract_followups(
     )
     if student_id:
         query = query.where(AgentActionContract.student_id == student_id)
-    query = query.order_by(AgentActionContract.followup_at.asc()).limit(max(1, min(limit, 200)))
+    query = query.order_by(AgentActionContract.followup_at.asc()).limit(max(1, min(limit, 5)))
     result = await db.execute(query)
     contracts = list(result.scalars().all())
 
@@ -341,6 +342,7 @@ async def process_due_contract_followups(
             body=body,
             notification_type="wellbeing",
             payload={"contract_id": str(contract.id), "status": contract.status},
+            cooldown_hours=12,
         )
         contract.followup_sent_at = now
         sent_count += 1

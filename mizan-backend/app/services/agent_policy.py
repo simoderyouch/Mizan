@@ -194,9 +194,9 @@ def deterministic_decision(context: dict) -> dict:
             "task_title": "Urgent exam triage + recovery (30 min)",
             "task_description": "Do 10 minutes of calming reset, then one 20-minute focused block on the nearest exam topic.",
             "notification_type": "critical_wellbeing",
-            "notification_cooldown_hours": 2,
+            "notification_cooldown_hours": 12,
             "followup_notification_type": "critical_wellbeing_followup",
-            "followup_cooldown_hours": 4,
+            "followup_cooldown_hours": 12,
         }
 
     # Rule 1b: no sleep + sustained distress => immediate escalation
@@ -216,9 +216,9 @@ def deterministic_decision(context: dict) -> dict:
             "task_title": "Recovery-first protocol (30 min)",
             "task_description": "Take 20 minutes to recover (hydration + breathing + no screen), then do one short 10-minute restart task.",
             "notification_type": "critical_fatigue",
-            "notification_cooldown_hours": 2,
+            "notification_cooldown_hours": 12,
             "followup_notification_type": "critical_fatigue_followup",
-            "followup_cooldown_hours": 4,
+            "followup_cooldown_hours": 12,
         }
 
     # Rule 1c: no sleep warning => actionable rest + protected focus

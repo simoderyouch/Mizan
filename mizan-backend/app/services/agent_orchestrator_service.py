@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import and_, select
@@ -26,11 +26,11 @@ from app.services.agent_contract_service import (
     get_adaptive_level,
     process_due_contract_followups,
 )
-from app.services.notification_service import create_notification
+from app.services.notification_service import create_notification, has_recent_notification
 
 settings = get_settings()
 DEFAULT_CHAT_COOLDOWN_MINUTES = 20
-DEFAULT_TASK_DEDUP_HOURS = 2
+DEFAULT_TASK_DEDUP_HOURS = 24
 
 
 def _extract_chat_text(content: Any) -> str:
@@ -977,6 +977,33 @@ async def _choose_decision_with_payload(
     return merged
 
 
+async def _agent_task_rate_limit_reached(db: AsyncSession, student_id) -> bool:
+    now = datetime.now(timezone.utc)
+    hour_ago = now - timedelta(hours=1)
+    day_start = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+    hourly_result = await db.execute(
+        select(Task).where(
+            and_(
+                Task.student_id == student_id,
+                Task.source == "agent",
+                Task.created_at >= hour_ago,
+            )
+        )
+    )
+    if len(list(hourly_result.scalars().all())) >= max(1, settings.AGENT_TASK_MAX_PER_HOUR):
+        return True
+    daily_result = await db.execute(
+        select(Task).where(
+            and_(
+                Task.student_id == student_id,
+                Task.source == "agent",
+                Task.created_at >= day_start,
+            )
+        )
+    )
+    return len(list(daily_result.scalars().all())) >= max(1, settings.AGENT_TASK_MAX_PER_DAY)
+
+
 async def _create_agent_task_if_missing(
     db: AsyncSession,
     student_id,
@@ -984,8 +1011,11 @@ async def _create_agent_task_if_missing(
     description: str | None,
     force_create: bool = False,
     dedup_hours: int = DEFAULT_TASK_DEDUP_HOURS,
+    bypass_rate_limit: bool = False,
 ) -> Task | None:
     if not title:
+        return None
+    if not bypass_rate_limit and await _agent_task_rate_limit_reached(db, student_id):
         return None
     today = date.today()
     if not force_create:
@@ -1031,25 +1061,10 @@ async def _create_agent_task_if_missing(
         body=f"Your assistant added a new task: {task.title}",
         notification_type="task",
         payload=task_payload,
+        cooldown_hours=settings.AGENT_TASK_NOTIFICATION_COOLDOWN_HOURS,
     )
 
     return task
-
-
-async def _has_recent_notification(
-    db: AsyncSession, *, student_id, notification_type: str, cooldown_hours: int
-) -> bool:
-    cooldown_since = datetime.now(timezone.utc) - timedelta(hours=cooldown_hours)
-    result = await db.execute(
-        select(Notification).where(
-            and_(
-                Notification.student_id == student_id,
-                Notification.type == notification_type,
-                Notification.created_at >= cooldown_since,
-            )
-        )
-    )
-    return result.scalars().first() is not None
 
 
 async def _send_notification_with_cooldown(
@@ -1063,14 +1078,6 @@ async def _send_notification_with_cooldown(
     cooldown_hours: int,
     bypass_cooldown: bool = False,
 ):
-    if not bypass_cooldown:
-        if await _has_recent_notification(
-            db,
-            student_id=student_id,
-            notification_type=notification_type,
-            cooldown_hours=cooldown_hours,
-        ):
-            return None
     return await create_notification(
         db,
         student_id=student_id,
@@ -1078,6 +1085,8 @@ async def _send_notification_with_cooldown(
         body=body,
         notification_type=notification_type,
         payload=payload,
+        cooldown_hours=cooldown_hours,
+        bypass_cooldown=bypass_cooldown,
     )
 
 
@@ -1191,6 +1200,7 @@ async def _execute_escalation(
     event_type: str,
     bypass_cooldown: bool = False,
     allow_duplicate_tasks: bool = False,
+    bypass_rate_limit: bool = False,
 ):
     notification_type = str(decision.get("notification_type", "warning")).strip() or "warning"
     followup_notification_type = (
@@ -1216,27 +1226,30 @@ async def _execute_escalation(
         title=decision.get("task_title") or "Urgent wellbeing reset + one academic win",
         description=decision.get("task_description")
         or "Take a 20-minute reset, hydrate, and complete one short priority task.",
-        force_create=allow_duplicate_tasks,
+        force_create=allow_duplicate_tasks and bool(notif or bypass_cooldown),
+        bypass_rate_limit=bypass_rate_limit,
     )
-    followup_notif = await _send_notification_with_cooldown(
-        db,
-        student_id=student_id,
-        title=str(decision.get("followup_notification_title", "Support follow-up")).strip()
-        or "Support follow-up",
-        body=str(
-            decision.get(
-                "followup_notification_body",
-                "If the pressure remains high tonight, contact a trusted peer/mentor and reduce cognitive load for 30 minutes.",
-            )
-        ).strip()
-        or "If the pressure remains high tonight, contact a trusted peer/mentor and reduce cognitive load for 30 minutes.",
-        notification_type=followup_notification_type,
-        payload=_agent_notification_payload(
-            event_type, decision, severity="high", step="follow_up"
-        ),
-        cooldown_hours=followup_cooldown_hours,
-        bypass_cooldown=bypass_cooldown,
-    )
+    followup_notif = None
+    if notif or bypass_cooldown:
+        followup_notif = await _send_notification_with_cooldown(
+            db,
+            student_id=student_id,
+            title=str(decision.get("followup_notification_title", "Support follow-up")).strip()
+            or "Support follow-up",
+            body=str(
+                decision.get(
+                    "followup_notification_body",
+                    "If the pressure remains high tonight, contact a trusted peer/mentor and reduce cognitive load for 30 minutes.",
+                )
+            ).strip()
+            or "If the pressure remains high tonight, contact a trusted peer/mentor and reduce cognitive load for 30 minutes.",
+            notification_type=followup_notification_type,
+            payload=_agent_notification_payload(
+                event_type, decision, severity="high", step="follow_up"
+            ),
+            cooldown_hours=followup_cooldown_hours,
+            bypass_cooldown=bypass_cooldown,
+        )
     return notif, task, followup_notif
 
 
@@ -1281,6 +1294,7 @@ async def _default_create_task(
     decision: dict,
     adaptive_level: str,
     allow_duplicate_tasks: bool = False,
+    bypass_rate_limit: bool = False,
 ):
     title, description = adapt_task_for_level(
         decision.get("task_title") or "Recovery routine and one focus sprint",
@@ -1296,6 +1310,7 @@ async def _default_create_task(
         description=description,
         force_create=allow_duplicate_tasks,
         dedup_hours=task_dedup_hours,
+        bypass_rate_limit=bypass_rate_limit,
     )
 
 
@@ -1361,6 +1376,7 @@ async def _execute_primary_action(
     manual_force_event = _is_manual_force_event(event_type)
     bypass_cooldown = manual_force_event or bool(decision.get("cooldown_bypass"))
     allow_duplicate_tasks = manual_force_event or bool(decision.get("allow_duplicate_tasks"))
+    bypass_task_rate_limit = manual_force_event
     artifacts: dict[str, Any] = {"action": action}
     actions_done: list[str] = []
 
@@ -1383,6 +1399,7 @@ async def _execute_primary_action(
             decision=decision,
             adaptive_level=adaptive_level,
             allow_duplicate_tasks=allow_duplicate_tasks,
+            bypass_rate_limit=bypass_task_rate_limit,
         )
         actions_done.append("task" if task else "task_skipped_duplicate")
         artifacts["task_id"] = str(task.id) if task else None
@@ -1417,6 +1434,7 @@ async def _execute_primary_action(
             decision=decision,
             adaptive_level=adaptive_level,
             allow_duplicate_tasks=allow_duplicate_tasks,
+            bypass_rate_limit=bypass_task_rate_limit,
         )
         actions_done.append("notification" if notif else "notification_skipped_cooldown")
         actions_done.append("task" if task else "task_skipped_duplicate")
@@ -1452,6 +1470,7 @@ async def _execute_primary_action(
                 description=focus_desc,
                 force_create=allow_duplicate_tasks,
                 dedup_hours=DEFAULT_TASK_DEDUP_HOURS,
+                bypass_rate_limit=bypass_task_rate_limit,
             )
             actions_done.append("mode_suggestion_suppressed")
             actions_done.append("mode_focus_task" if mode_task else "mode_focus_task_skipped_duplicate")
@@ -1480,6 +1499,7 @@ async def _execute_primary_action(
             description=focus_desc,
             force_create=allow_duplicate_tasks,
             dedup_hours=_to_non_negative_int(decision.get("task_dedup_hours"), DEFAULT_TASK_DEDUP_HOURS),
+            bypass_rate_limit=bypass_task_rate_limit,
         )
         actions_done.append("mode_suggestion" if notif else "mode_suggestion_skipped_cooldown")
         actions_done.append("mode_focus_task" if focus_task else "mode_focus_task_skipped_duplicate")
@@ -1523,6 +1543,7 @@ async def _execute_primary_action(
                 description="Spend 15 minutes applying one concrete technique from the suggested resource.",
                 force_create=allow_duplicate_tasks,
                 dedup_hours=DEFAULT_TASK_DEDUP_HOURS,
+                bypass_rate_limit=bypass_task_rate_limit,
             )
         actions_done.append("resource_nudge" if notif else "resource_nudge_skipped_cooldown")
         actions_done.append("resource_task" if resource_task else "resource_task_skipped_duplicate")
@@ -1553,6 +1574,7 @@ async def _execute_primary_action(
             event_type=event_type,
             bypass_cooldown=bypass_cooldown,
             allow_duplicate_tasks=allow_duplicate_tasks,
+            bypass_rate_limit=bypass_task_rate_limit,
         )
         actions_done.append("escalation_notification" if notif else "escalation_skipped_cooldown")
         actions_done.append("escalation_task" if task else "escalation_task_skipped_duplicate")
