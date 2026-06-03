@@ -24,7 +24,7 @@ External integrations: **Mistral** (LLM, STT, TTS, realtime transcription), **Cl
 
 ![AWS topology](./architecture/mizan-aws.png)
 
-Production-style demo stack: ECS Fargate (frontend + backend), RDS PostgreSQL, ALB + CloudFront, Secrets Manager, ECR, CloudWatch. See [DEPLOYMENT_README.md](../DEPLOYMENT_README.md) and [infra/aws/README.md](../infra/aws/README.md).
+Production-style AWS stack: ECS Fargate (frontend + backend), RDS PostgreSQL, ALB + CloudFront, Secrets Manager, ECR, CloudWatch. See [DEPLOYMENT_README.md](../DEPLOYMENT_README.md) and [infra/aws/README.md](../infra/aws/README.md).
 
 ---
 

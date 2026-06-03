@@ -1,118 +1,191 @@
-# Mizan — Full deployment guide
+# Mizan — Deployment guide
 
-Step-by-step guide to deploy **backend**, **web frontend**, and **mobile app** for a demo or production-style run.
+Operations guide for deploying **Mizan** to AWS (web + API + database) and distributing the **Expo mobile** client. For system design, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
-| Component | Where it runs | How |
-|-----------|---------------|-----|
-| Backend (FastAPI) | AWS ECS Fargate + RDS | Docker image in ECR |
-| Frontend (Next.js) | AWS ECS Fargate | Docker image in ECR |
-| Public URL | CloudFront + ALB | One URL for web **and** API (`/api/v1/...`) |
-| Mobile (Expo) | Student phones | **EAS build** (APK/IPA) — **not** deployed to AWS |
+| Component | Runtime | Delivery |
+|-----------|---------|----------|
+| Backend (FastAPI) | ECS Fargate | Docker → ECR |
+| Frontend (Next.js) | ECS Fargate | Docker → ECR |
+| PostgreSQL | RDS (private subnet) | Terraform |
+| Public edge | CloudFront + ALB | Single origin for web and `/api/v1` |
+| Mobile (Expo) | Student devices | EAS Build (APK/IPA) — not on ECS |
 
-Detailed AWS Terraform notes: [infra/aws/README.md](./infra/aws/README.md)
+Terraform details: [infra/aws/README.md](./infra/aws/README.md)
 
 ---
 
-## Before you start
+## Deployment topology
 
-### Tools to install
+```mermaid
+flowchart TB
+  subgraph clients
+    Browser[Web browser]
+    Phone[Expo mobile app]
+  end
+  CF[CloudFront CDN]
+  ALB[Application Load Balancer]
+  subgraph vpc [VPC — private subnets]
+    FE[ECS Fargate — Next.js]
+    BE[ECS Fargate — FastAPI]
+    RDS[(RDS PostgreSQL)]
+  end
+  SM[Secrets Manager]
+  ECR[ECR images]
+  CW[CloudWatch Logs]
+  Mistral[Mistral API]
+  Cloudinary[Cloudinary]
 
-- **Git**
-- **Docker** (for local tests and manual AWS image builds)
-- **AWS CLI** v2 (if deploying manually)
-- **Terraform** ≥ 1.5 (if deploying manually)
-- **Node.js** 20 (frontend / mobile checks)
-- **Python** 3.12 (backend tests)
-- **Expo / EAS CLI** (mobile builds): `npm install -g eas-cli`
-- **Expo account** (free): https://expo.dev
-
-### Accounts & keys you need
-
-| Secret | Used for |
-|--------|----------|
-| AWS access key + secret | Push images, Terraform |
-| S3 bucket | Terraform state (one-time) |
-| `BACKEND_SECRET_KEY` | JWT (long random string) |
-| `MISTRAL_API_KEY` | AI check-ins, agent, voice |
-| `CLOUDINARY_*` (optional) | Profile photos |
-| `SMTP_USER` / `SMTP_PASSWORD` (optional) | OTP / activation emails |
-
-### Repo layout
-
-```text
-mizan/
-├── mizan-backend/      # API
-├── mizan-frontend/     # Web (admin + student)
-├── mizan-mobile-app/   # Expo React Native (students)
-├── infra/aws/          # Terraform (AWS)
-└── .github/workflows/ci-cd.yml
+  Browser --> CF
+  Phone --> CF
+  CF --> ALB
+  ALB -->|"/api/v1/*" "/health" "/docs"| BE
+  ALB -->|"/*" static + SSR| FE
+  BE --> RDS
+  BE --> SM
+  BE --> Mistral
+  BE --> Cloudinary
+  FE -.->|build-time API URL| CF
+  BE --> CW
+  FE --> CW
+  ECR --> FE
+  ECR --> BE
 ```
 
+### Request routing (single public hostname)
+
+```mermaid
+flowchart LR
+  User[Client] --> CF[CloudFront]
+  CF --> ALB[ALB]
+  ALB -->|"/api/v1/*" "/health" "/docs" "/openapi.json"| API[Backend ECS]
+  ALB -->|all other paths| Web[Frontend ECS]
+```
+
+Mobile and web clients use the **same origin** (CloudFront URL or custom domain). API base path: `/api/v1` (appended by clients). WebSocket voice: `wss://<host>/api/v1/voice/realtime`.
+
 ---
 
-## Phase 0 — Preflight on your machine
+## Environments
 
-Run these **before** cloud deploy to catch obvious issues.
+| Environment | Purpose | Terraform state key (example) |
+|-------------|---------|-------------------------------|
+| `staging` | Pre-production validation, lower cost defaults | `mizan/staging/terraform.tfstate` |
+| `production` | Live school pilot or production | `mizan/production/terraform.tfstate` |
 
-### 0.1 Backend tests
+Set via GitHub **variable** `DEPLOY_ENVIRONMENT` (defaults to `staging` in CI) or Terraform `-var="environment=production"`.
+
+Use **separate state keys** per environment so staging and production never share state.
+
+---
+
+## CI/CD pipeline
+
+```mermaid
+flowchart LR
+  subgraph pr [Pull request / push]
+    T1[Backend pytest]
+    T2[Frontend lint + build]
+    T3[Mobile typecheck]
+  end
+  subgraph deploy [Deploy — main only if enabled]
+    D1[Build + push backend image]
+    D2[Terraform apply — infra]
+    D3[Rebuild frontend with public URL]
+    D4[Terraform apply — final tags]
+    D5[CloudFront invalidation]
+    D6[Health check /health]
+  end
+  T1 --> deploy
+  T2 --> deploy
+  T3 --> deploy
+```
+
+Workflow file: [.github/workflows/ci-cd.yml](./.github/workflows/ci-cd.yml). Deploy runs when `AWS_DEPLOY_ENABLED=true` on push to `main`, or manually (**Actions → CI/CD → Run workflow → deploy**).
+
+---
+
+## Prerequisites
+
+### Tooling
+
+- Git, Docker, AWS CLI v2, Terraform ≥ 1.5
+- Node.js 20, Python 3.12
+- EAS CLI for mobile releases: `npm install -g eas-cli`
+
+### AWS & application secrets
+
+| Secret / variable | Required | Purpose |
+|-------------------|----------|---------|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Deploy | IAM user for ECR, ECS, RDS, CloudFront, S3, Secrets Manager |
+| `TF_STATE_BUCKET` | Deploy | Versioned S3 bucket for Terraform state |
+| `TF_STATE_KEY` | Deploy | e.g. `mizan/staging/terraform.tfstate` |
+| `BACKEND_SECRET_KEY` | Strongly recommended | JWT signing (32+ chars); generated by Terraform if empty |
+| `MISTRAL_API_KEY` | For AI features | Check-ins, agent, voice |
+| `CLOUDINARY_*` | Optional | Profile photos |
+| `SMTP_USER` / `SMTP_PASSWORD` | Optional | Account activation / password reset |
+| `APP_PUBLIC_URL` | Optional | Custom domain (`https://app.yourschool.com`) |
+
+---
+
+## Phase 0 — Local validation
+
+Run before any cloud deploy.
+
+### Backend tests
 
 ```bash
 cd mizan-backend
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/mizan_test"
-export USE_LOCAL_DATABASE=false
 export SECRET_KEY="local-test-secret-key-min-32-chars-long"
 export ENABLE_SCHEDULER=false
 python -m pytest
 ```
 
-### 0.2 Frontend build
+### Frontend build
 
 ```bash
 cd mizan-frontend
-npm ci
-npm run lint
+npm ci && npm run lint
 NEXT_PUBLIC_API_URL=http://localhost:8000 \
 NEXT_PUBLIC_WS_URL=ws://localhost:8000/api/v1/voice/realtime \
 npm run build
 ```
 
-### 0.3 Mobile typecheck
+### Mobile typecheck
 
 ```bash
 cd mizan-mobile-app
-npm ci
-npm run typecheck
+npm ci && npm run typecheck
 ```
 
-### 0.4 Optional: full stack locally (Docker)
+### Optional: full stack (Docker Compose)
 
 ```bash
-cd /path/to/mizan
+cp mizan-backend/.env.example mizan-backend/.env
+# Set SECRET_KEY, MISTRAL_API_KEY, etc.
 cp mizan-frontend/.env.local.example mizan-frontend/.env.local
-# Create mizan-backend/.env with at least:
-#   SECRET_KEY=change-me-in-production
-#   MISTRAL_API_KEY=your-key
 docker compose up -d --build
 ```
 
-- Web: http://localhost:3000  
-- API: http://localhost:8000/health  
-- Mobile (dev): `EXPO_PUBLIC_API_URL=http://<your-LAN-IP>:8000` in `mizan-mobile-app/.env`
+| Service | URL |
+|---------|-----|
+| Web | http://localhost:3000 |
+| API health | http://localhost:8000/health |
+| Mobile dev | `EXPO_PUBLIC_API_URL=http://<LAN-IP>:8000` |
+
+Bootstrap first admin: `cd mizan-backend && python create_global_admin.py` (see [README.md](./README.md)).
 
 ---
 
-## Phase 1 — AWS infrastructure (recommended: GitHub Actions)
+## Phase 1 — AWS (GitHub Actions)
 
-### 1.1 Create Terraform state bucket (once)
-
-Pick a **globally unique** bucket name and region (example: `eu-west-3`):
+### 1.1 Terraform state bucket (one-time)
 
 ```bash
 export AWS_REGION=eu-west-3
-export TF_STATE_BUCKET=mizan-tf-state-YOURNAME-UNIQUE
+export TF_STATE_BUCKET=mizan-tf-state-YOUR-ORG-UNIQUE
 
 aws s3 mb "s3://${TF_STATE_BUCKET}" --region "${AWS_REGION}"
 aws s3api put-bucket-versioning \
@@ -121,288 +194,185 @@ aws s3api put-bucket-versioning \
   --versioning-configuration Status=Enabled
 ```
 
-### 1.2 GitHub repository secrets
+### 1.2 GitHub configuration
 
-In GitHub: **Settings → Secrets and variables → Actions → Secrets**
+**Secrets** (Settings → Secrets and variables → Actions):
 
-**Required for deploy:**
-
-| Secret | Example / notes |
-|--------|------------------|
+| Secret | Value |
+|--------|--------|
 | `AWS_DEPLOY_ENABLED` | `true` |
-| `AWS_ACCESS_KEY_ID` | IAM user with ECR, ECS, RDS, CloudFront, S3, Secrets Manager |
-| `AWS_SECRET_ACCESS_KEY` | |
-| `AWS_REGION` | `eu-west-3` |
-| `TF_STATE_BUCKET` | Same as `TF_STATE_BUCKET` above |
-| `TF_STATE_KEY` | `mizan/demo/terraform.tfstate` |
-| `TF_STATE_REGION` | Same as `AWS_REGION` (optional if same) |
+| `AWS_ACCESS_KEY_ID` | IAM access key |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret |
+| `AWS_REGION` | e.g. `eu-west-3` |
+| `TF_STATE_BUCKET` | Bucket from §1.1 |
+| `TF_STATE_KEY` | `mizan/staging/terraform.tfstate` (or `mizan/production/...`) |
+| `BACKEND_SECRET_KEY` | Long random string |
+| `MISTRAL_API_KEY` | Mistral API key |
 
-**Strongly recommended:**
+**Variables** (optional):
 
-| Secret | Notes |
-|--------|--------|
-| `BACKEND_SECRET_KEY` | 32+ random characters |
-| `MISTRAL_API_KEY` | Required for agent + personalized check-ins |
+| Variable | Example |
+|----------|---------|
+| `PROJECT_NAME` | `mizan` |
+| `DEPLOY_ENVIRONMENT` | `staging` or `production` |
 
-**Custom domain (optional):**
+### 1.3 Deploy
 
-| Secret | Example |
-|--------|---------|
-| `APP_PUBLIC_URL` | `https://mizan.yourdomain.com` |
+Push to `main` or run workflow with `aws_action: deploy`.
 
-When set, Terraform requests an ACM certificate (us-east-1), attaches it to CloudFront, rebuilds the frontend with your URL, and prints Namecheap CNAME records in the deploy log. CI health checks use the CloudFront hostname until DNS propagates.
-
-After deploy, create the first global admin via `python create_global_admin.py` (see [README.md](./README.md)) or use the web onboarding flow. Do not commit real credentials.
-
-**Optional:**
-
-| Secret | Notes |
-|--------|--------|
-| `CLOUDINARY_CLOUD_NAME` | |
-| `CLOUDINARY_API_KEY` | |
-| `CLOUDINARY_API_SECRET` | |
-| `SMTP_USER` | |
-| `SMTP_PASSWORD` | |
-
-Optional **Variables** (not secrets): `PROJECT_NAME=mizan`, `DEPLOY_ENVIRONMENT=demo`
-
-### 1.3 Deploy via GitHub Actions
-
-1. Push your code to `main` on GitHub, **or**
-2. **Actions → CI/CD → Run workflow**
-   - `aws_action`: **deploy**
-
-The workflow will:
-
-1. Run backend tests and frontend build  
-2. Create ECR repos, push backend image  
-3. Apply Terraform (ECS, RDS, ALB, CloudFront, secrets)  
-4. Rebuild frontend with the real public URL  
-5. Invalidate CloudFront  
-6. Call `/health`
-
-Watch the job **Deploy AWS** until it finishes. Note the step **Show deployment URLs**.
-
-### 1.4 Get your public URLs
-
-From the workflow log, or locally after Terraform:
+Outputs appear in the **Show deployment URLs** step:
 
 ```bash
 cd infra/aws
 terraform init \
   -backend-config="bucket=${TF_STATE_BUCKET}" \
-  -backend-config="key=mizan/demo/terraform.tfstate" \
+  -backend-config="key=mizan/staging/terraform.tfstate" \
   -backend-config="region=${AWS_REGION}"
 
 terraform output app_url
 terraform output api_health_url
 ```
 
-You will get something like:
+Example:
 
-- **App / Web:** `https://d1234abcd.cloudfront.net`  
-- **Health:** `https://d1234abcd.cloudfront.net/health`
+- **Application:** `https://dxxxx.cloudfront.net`
+- **Health:** `https://dxxxx.cloudfront.net/health`
 
-Use **one origin** for both web and API. The mobile app uses the same base URL (no `/api/v1` suffix).
+### 1.4 Manual deploy (alternative)
 
----
-
-## Phase 1 (alternative) — Manual AWS deploy
-
-If you cannot use GitHub Actions, follow the exact sequence in [infra/aws/README.md](./infra/aws/README.md) (bootstrap frontend image → apply → rebuild frontend with `app_url` → apply again → invalidate CloudFront).
+If CI is unavailable, follow the two-phase image build in [infra/aws/README.md](./infra/aws/README.md) (bootstrap frontend → apply → rebuild with `app_url` → apply → invalidate CloudFront).
 
 ---
 
-## Phase 2 — Verify web deployment
+## Phase 2 — Post-deploy verification
 
-1. Open `terraform output app_url` in a browser.  
-2. Check health: `curl -fsS "$(terraform output -raw api_health_url)"`  
-   - Expect JSON with `"status":"ok"` and database connected.  
-3. Log in with an admin account created via `create_global_admin.py` or your school onboarding flow.
-4. Admin: add an exam or project with a **near deadline** → student should get notifications + agent task.  
-5. Student web: **Agent chat**, **Tasks**, **Notifications**.
+| Check | Expected |
+|-------|----------|
+| `curl -fsS "$(terraform output -raw api_health_url)"` | `"status":"ok"`, DB connected |
+| Web login | Admin or student via provisioned accounts |
+| CORS | Browser calls same CloudFront origin |
+| Admin publishes class content | Schedules / exams visible to students |
+| Student check-in | Morning or evening ritual persists |
+| Agent path | Chat or check-in may create notification + task |
+| Secrets | `MISTRAL_API_KEY` present in Secrets Manager for AI paths |
 
-### Web env reminder
+Frontend build args (set automatically in CI on second build):
 
-Production frontend is baked at **build time**:
-
-- `NEXT_PUBLIC_API_URL` = your CloudFront URL  
-- `NEXT_PUBLIC_WS_URL` = `wss://<same-host>/api/v1/voice/realtime`
-
-The CI workflow sets these automatically on the second frontend build.
+- `NEXT_PUBLIC_API_URL` = public origin (no trailing slash)
+- `NEXT_PUBLIC_WS_URL` = `wss://<host>/api/v1/voice/realtime`
 
 ---
 
-## Phase 3 — Mobile app (Expo EAS)
+## Phase 3 — Mobile (EAS)
 
-The mobile app does **not** go to ECS. You build an **APK** (Android) or **IPA** (iOS) and install it on demo phones.
+Mobile binaries are **not** deployed to ECS. Point the app at the same API origin as the web app.
 
-### 3.1 Set production API URL
-
-After Phase 1, copy your public app URL (CloudFront), e.g. `https://d1234abcd.cloudfront.net`.
-
-**Option A — EAS environment (recommended for builds)**
+### Production API URL
 
 ```bash
 cd mizan-mobile-app
 eas login
-eas env:create --name EXPO_PUBLIC_API_URL --value "https://YOUR-CLOUDFRONT-URL" --environment production --visibility plaintext
+eas env:create \
+  --name EXPO_PUBLIC_API_URL \
+  --value "https://YOUR-PUBLIC-ORIGIN" \
+  --environment production \
+  --visibility plaintext
 ```
 
-**Option B — local file for one-off build**
+Or in `.env` for a one-off build (origin only — no `/api/v1` suffix):
 
-```bash
-cd mizan-mobile-app
-cp .env.example .env
-# Edit .env — API origin only, NO /api/v1:
-EXPO_PUBLIC_API_URL=https://YOUR-CLOUDFRONT-URL
+```env
+EXPO_PUBLIC_API_URL=https://YOUR-PUBLIC-ORIGIN
 ```
 
-### 3.2 Configure EAS project (first time only)
+### Build
 
 ```bash
 cd mizan-mobile-app
 npm ci
-eas login
-eas build:configure
+eas build:configure   # first time only
+eas build --platform android --profile preview   # internal APK
+# eas build --platform android --profile production  # store track
 ```
 
-`app.json` already contains an EAS `projectId`. If EAS asks to link the project, accept linking to your Expo account.
+### Verify on device
 
-### 3.3 Build Android APK (demo / internal distribution)
-
-```bash
-cd mizan-mobile-app
-eas build --platform android --profile preview
-```
-
-When the build finishes, Expo gives a **download link** for the `.apk`. Install on the phone (enable “install unknown apps” if needed).
-
-For a store-ready build later:
-
-```bash
-eas build --platform android --profile production
-```
-
-### 3.4 Build iOS (optional, needs Apple Developer account)
-
-```bash
-eas build --platform ios --profile preview
-```
-
-Install via TestFlight or internal distribution.
-
-### 3.5 Development client (engineering only)
-
-For day-to-day coding with hot reload:
-
-```bash
-cd mizan-mobile-app
-cp .env.example .env
-# LAN IP for physical device, or 10.0.2.2:8000 for Android emulator
-EXPO_PUBLIC_API_URL=http://192.168.1.XX:8000
-npm start
-```
-
-Use **development** profile only if you already installed a dev client:
-
-```bash
-eas build --profile development --platform android
-```
-
-### 3.6 Verify mobile against production
-
-On the phone (production API URL configured):
-
-1. Open Mizan → log in as student.  
-2. **More** tab → Backend card should show **Connected** and your HTTPS URL.  
-3. **Rituel** → morning/evening check-in.  
-4. **Mizan AI** → send a message → check **Notifications** and **Tasks** if agent acted.  
-5. Microphone: allow permission for voice check-in / voice chat.
-
-**Do not use `localhost` on a physical phone** — it points to the phone itself, not your server.
+1. Log in as student — **More** should show backend **Connected** with HTTPS URL.
+2. Complete a check-in; open **Mizan AI** and confirm notifications/tasks if agent acted.
+3. Do not use `localhost` on a physical device.
 
 ---
 
-## Phase 4 — Demo day checklist
+## Phase 4 — Operations
 
-| Step | Done |
-|------|------|
-| CloudFront URL opens web app | ☐ |
-| `/health` OK | ☐ |
-| `MISTRAL_API_KEY` set in AWS secrets | ☐ |
-| Admin can add class content | ☐ |
-| Student web login works | ☐ |
-| Mobile APK installed with same API URL | ☐ |
-| Mobile “Backend: Connected” on More screen | ☐ |
-| One live agent action visible (task + notification) | ☐ |
-
----
-
-## Tear down AWS (after demo)
-
-**GitHub Actions → CI/CD → Run workflow → `aws_action`: destroy**
-
-Or locally:
+### Logs
 
 ```bash
-cd infra/aws
-terraform destroy
+aws logs tail "/ecs/mizan-${ENVIRONMENT}-backend" --follow --region eu-west-3
 ```
 
-CloudFront removal can take several minutes. This deletes ECS, RDS, ALB, ECR repos (if configured), etc.
+Replace `${ENVIRONMENT}` with `staging` or `production` (matches `DEPLOY_ENVIRONMENT`).
 
----
-
-## Troubleshooting
-
-| Problem | What to check |
-|---------|----------------|
-| Frontend loads, API 404 | `NEXT_PUBLIC_API_URL` must be CloudFront origin; rebuild frontend image after URL is known |
-| CORS errors in browser | Terraform sets `BACKEND_CORS_ORIGINS` to public origin; redeploy if you changed URL |
-| Mobile “Backend: Offline” | `EXPO_PUBLIC_API_URL` must be `https://...` CloudFront URL; phone needs internet |
-| Generic check-in questions | `MISTRAL_API_KEY` empty on backend → set secret and redeploy ECS |
-| No agent tasks on chat | Same Mistral key; check backend logs on CloudWatch |
-| WS errors in logs on tab close | Harmless client disconnect; optional fix in `STUDENT_APP_PLAN.md` |
-| GitHub deploy skipped | `AWS_DEPLOY_ENABLED` must be exactly `true` |
-| Terraform state lock | Wait or fix S3/Dynamo lock; don’t run two deploys at once |
-
-### Useful commands
+### Cache invalidation (after frontend deploy)
 
 ```bash
-# Backend logs (replace cluster/service from terraform output)
-aws logs tail /ecs/mizan-demo-backend --follow --region eu-west-3
-
-# Force CloudFront refresh after frontend rebuild
 aws cloudfront create-invalidation \
   --distribution-id "$(cd infra/aws && terraform output -raw cloudfront_distribution_id)" \
   --paths "/*"
 ```
 
+### Decommissioning (staging / cost control)
+
+**Actions → CI/CD → Run workflow → `aws_action: destroy`**
+
+Or locally: `cd infra/aws && terraform destroy`
+
+CloudFront deletion can take several minutes. This removes ECS, RDS, ALB, and related resources for that state file.
+
 ---
 
-## What is *not* in this deploy
+## Troubleshooting
 
-- **Teachers role** — content UI is admin-only for now (presentation OK).  
-- **App Store / Play Store listing** — use EAS `production` + store submission separately.  
-- **mizan-frontend-pwa** — local dev only, not deployed.
+| Symptom | Likely cause |
+|---------|----------------|
+| UI loads, API 404 | Frontend built before public URL known — rerun CI deploy or rebuild with correct `NEXT_PUBLIC_API_URL` |
+| CORS errors | `BACKEND_CORS_ORIGINS` must include the public origin |
+| Mobile offline | Wrong `EXPO_PUBLIC_API_URL` or device has no route to internet |
+| Generic check-in copy | Missing `MISTRAL_API_KEY` on backend task |
+| Deploy skipped | `AWS_DEPLOY_ENABLED` must be `true` |
+| State lock | Concurrent Terraform runs — wait or clear S3 lock |
+
+---
+
+## Cost profile (defaults)
+
+The Terraform stack defaults to a **lean** footprint suitable for staging:
+
+- 1× Fargate task per service, `db.t4g.micro` RDS, no NAT gateway, CloudFront PriceClass_100
+
+Scale CPU/memory, RDS class, and multi-AZ in [infra/aws/variables.tf](./infra/aws/variables.tf) for production workloads.
+
+---
+
+## Out of scope for this guide
+
+- Google Play / App Store submission (use EAS `production` profiles separately)
+- Multi-region active-active
+- `mizan-frontend-pwa` — local experiment only (gitignored)
 
 ---
 
 ## Quick reference
 
 ```bash
-# Local checks
-cd mizan-backend && pytest
+# Quality gates
+cd mizan-backend && python -m pytest
 cd mizan-frontend && npm run build
 cd mizan-mobile-app && npm run typecheck
 
-# Mobile production build
-cd mizan-mobile-app
-eas build --platform android --profile preview
-
-# Public URLs (after Terraform)
+# URLs
 cd infra/aws && terraform output app_url && terraform output api_health_url
-```
 
-For questions about AWS resource sizing and cost, see [infra/aws/README.md](./infra/aws/README.md).
+# Android internal build
+cd mizan-mobile-app && eas build --platform android --profile preview
+```

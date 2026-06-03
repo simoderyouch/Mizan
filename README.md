@@ -34,7 +34,7 @@ An **event-driven autonomous agent** (Mistral-backed) reacts to check-ins and ch
 | Mobile | Expo, React Native |
 | AI | Mistral (LLM, STT, TTS, realtime transcription) |
 | Media | Cloudinary |
-| Infra | Docker Compose (local), AWS ECS + RDS + CloudFront (demo/prod) |
+| Infra | Docker Compose (local), AWS ECS + RDS + CloudFront (staging/production) |
 | CI | GitHub Actions — backend tests, frontend build, mobile typecheck, optional AWS deploy |
 
 **License:** [MIT](./LICENSE)
@@ -255,13 +255,14 @@ Production checklist:
 - Explicit `BACKEND_CORS_ORIGINS` (no wildcards in production)
 - Private RDS, HTTPS via CloudFront/ALB
 - Secrets in AWS Secrets Manager
-- Budget alerts and tested `destroy` workflow for demo stacks
+- Budget alerts and a tested `destroy` workflow for non-production environments
 
 ---
 
-## Team & context
+## Repository notes
 
-Graduation project — **ENSET** — student wellbeing with responsible AI: contextual nudges, safety filtering, and transparent agent actions (contracts + notifications).
+- **Thesis / report material** (`rapport/`) is intentionally **local only** (gitignored) and not part of this repository.
+- Architecture diagrams for GitHub live under `docs/architecture/` (copied from design artifacts).
 
 <p align="center">
   <img src="docs/assets/MIZAN_ICON.png" alt="Mizan icon" width="64" />

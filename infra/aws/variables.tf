@@ -12,8 +12,8 @@ variable "project_name" {
 
 variable "environment" {
   type        = string
-  description = "Deployment environment name."
-  default     = "demo"
+  description = "Deployment environment name (e.g. staging, production). Used in resource naming and tags."
+  default     = "staging"
 }
 
 variable "backend_image_tag" {
@@ -54,7 +54,7 @@ variable "frontend_container_port" {
 
 variable "backend_task_cpu" {
   type        = number
-  description = "Fargate task CPU units. 512 is safer for the demo backend; 256 is cheaper."
+  description = "Fargate task CPU units. 512 is a balanced default for the API; 256 is cheaper."
   default     = 512
 }
 
@@ -139,19 +139,19 @@ variable "db_max_allocated_storage_gb" {
 
 variable "db_backup_retention_days" {
   type        = number
-  description = "RDS backup retention. Use 0 for the cheapest short demo."
+  description = "RDS backup retention in days. Use 0 to minimize cost in staging."
   default     = 1
 }
 
 variable "db_deletion_protection" {
   type        = bool
-  description = "Protect the database from accidental deletion. Keep false for one-day demo teardown."
+  description = "Protect the database from accidental deletion. Enable for production."
   default     = false
 }
 
 variable "db_skip_final_snapshot" {
   type        = bool
-  description = "Skip final RDS snapshot on destroy. Keep true for one-day demo teardown."
+  description = "Skip final RDS snapshot on destroy. Set false for production."
   default     = true
 }
 
@@ -223,7 +223,7 @@ variable "max_csv_upload_bytes" {
 
 variable "mistral_api_key" {
   type        = string
-  description = "Mistral API key. Leave empty if AI features are not used during the demo."
+  description = "Mistral API key. Required for AI check-ins, agent, and voice features."
   default     = ""
   sensitive   = true
 }
@@ -353,7 +353,7 @@ variable "log_retention_days" {
 
 variable "secret_recovery_window_days" {
   type        = number
-  description = "Secrets Manager recovery window. Use 0 for immediate demo teardown."
+  description = "Secrets Manager recovery window in days. Use 0 for immediate deletion on destroy (staging)."
   default     = 0
 }
 

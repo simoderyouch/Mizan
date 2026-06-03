@@ -18,7 +18,7 @@ out/
 terraform.tfvars
 terraform.tfvars.json
 
-# Local presentation / thesis / design scratch
+# Local-only — thesis / academic report (never publish to GitHub)
 DEMO_*.md
 proposition_pp_mizan.pdf
 proposition_pp_mizan.tex

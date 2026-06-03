@@ -111,7 +111,7 @@ jobs:
       TF_STATE_REGION: ${{ secrets.TF_STATE_REGION }}
       TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
       TF_VAR_project_name: ${{ vars.PROJECT_NAME || 'mizan' }}
-      TF_VAR_environment: ${{ vars.DEPLOY_ENVIRONMENT || 'demo' }}
+      TF_VAR_environment: ${{ vars.DEPLOY_ENVIRONMENT || 'staging' }}
       TF_VAR_backend_image_tag: ${{ github.sha }}
       TF_VAR_frontend_image_tag: ${{ github.sha }}-bootstrap
       TF_VAR_backend_secret_key: ${{ secrets.BACKEND_SECRET_KEY }}
@@ -187,7 +187,7 @@ jobs:
         if: steps.deploy_config.outputs.enabled == 'true'
         working-directory: infra/aws
         run: |
-          KEY="${TF_STATE_KEY:-mizan/demo/terraform.tfstate}"
+          KEY="${TF_STATE_KEY:-mizan/staging/terraform.tfstate}"
           REGION="${TF_STATE_REGION:-$AWS_REGION}"
           terraform init \
             -backend-config="bucket=$TF_STATE_BUCKET" \
@@ -306,7 +306,7 @@ jobs:
       TF_STATE_REGION: ${{ secrets.TF_STATE_REGION }}
       TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
       TF_VAR_project_name: ${{ vars.PROJECT_NAME || 'mizan' }}
-      TF_VAR_environment: ${{ vars.DEPLOY_ENVIRONMENT || 'demo' }}
+      TF_VAR_environment: ${{ vars.DEPLOY_ENVIRONMENT || 'staging' }}
       TF_VAR_frontend_image_tag: destroy-placeholder
       TF_VAR_backend_secret_key: ${{ secrets.BACKEND_SECRET_KEY }}
       TF_VAR_mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
@@ -362,7 +362,7 @@ jobs:
       - name: Terraform init
         working-directory: infra/aws
         run: |
-          KEY="${TF_STATE_KEY:-mizan/demo/terraform.tfstate}"
+          KEY="${TF_STATE_KEY:-mizan/staging/terraform.tfstate}"
           REGION="${TF_STATE_REGION:-$AWS_REGION}"
           terraform init \
             -backend-config="bucket=$TF_STATE_BUCKET" \
