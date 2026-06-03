@@ -31,7 +31,6 @@ export type MainStackParamList = {
   Profile: undefined;
   AgentChat: undefined;
   AgentContracts: { highlight?: string } | undefined;
-  AgentScenarios: undefined;
   History: undefined;
   WeeklyReport: undefined;
   Goals: undefined;

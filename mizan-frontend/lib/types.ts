@@ -761,34 +761,6 @@ export interface AgentChatResponse {
   agent_action?: AgentActionSummary | null;
 }
 
-export interface AgentTestDecision {
-  id: UUID;
-  action: string;
-  thought?: string | null;
-  confidence?: number | null;
-  result?: Record<string, unknown> | null;
-  created_at: string;
-}
-
-export interface AgentTestRun {
-  id: UUID;
-  trigger_type: string;
-  idempotency_key: string;
-  status: string;
-  reasoning_summary?: string | null;
-  created_at: string;
-  decisions: AgentTestDecision[];
-}
-
-export interface AgentTestTriggerPayload {
-  event_type: string;
-  note?: string;
-}
-
-export interface AgentTestTriggerResponse {
-  run: AgentTestRun;
-}
-
 export interface AgentActionContract {
   id: UUID;
   student_id: UUID;

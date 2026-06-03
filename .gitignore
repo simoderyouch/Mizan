@@ -18,8 +18,31 @@ out/
 terraform.tfvars
 terraform.tfvars.json
 
-# Local presentation material
+# Local presentation / thesis / design scratch
 DEMO_*.md
 proposition_pp_mizan.pdf
 proposition_pp_mizan.tex
 rapport.zip
+rapport/
+Mascout Images/
+login_info.txt
+docs/Screenshot*.png
+mizan-frontend/only_inpirations/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+.test_venv/
+*.egg-info/
+
+# IDE / OS
+.DS_Store
+*.tsbuildinfo
+
+# Secrets
+.env
+mizan-backend/.env
+mizan-mobile-app/.env

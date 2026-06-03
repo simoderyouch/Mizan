@@ -10,9 +10,6 @@ import type {
   AgentChatResponse,
   AgentPlanPayload,
   AgentPlanResponse,
-  AgentTestRun,
-  AgentTestTriggerPayload,
-  AgentTestTriggerResponse,
   ApiErrorResponse,
   ApiMessageResponse,
   CheckinHistoryResponse,
@@ -631,8 +628,4 @@ export const agentApi = {
     }),
   completeContract: (contractId: string) =>
     request<AgentActionContract>({ method: "POST", url: `/agent/contracts/${contractId}/complete` }),
-  listTestRuns: (limit = 20) =>
-    request<AgentTestRun[]>({ method: "GET", url: buildPathWithQuery("/agent/test/runs", { limit }) }),
-  triggerTestRun: (payload: AgentTestTriggerPayload) =>
-    request<AgentTestTriggerResponse>({ method: "POST", url: "/agent/test/trigger", data: payload }),
 };

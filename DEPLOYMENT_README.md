@@ -152,7 +152,7 @@ In GitHub: **Settings → Secrets and variables → Actions → Secrets**
 
 When set, Terraform requests an ACM certificate (us-east-1), attaches it to CloudFront, rebuilds the frontend with your URL, and prints Namecheap CNAME records in the deploy log. CI health checks use the CloudFront hostname until DNS propagates.
 
-Demo data is seeded automatically on first backend startup (`SEED_DEMO_DATA=true` by default): school ENSET, admin accounts, and student personas. Password for all demo users: `Mizan@2026!` (see `login_info.txt`).
+After deploy, create the first global admin via `python create_global_admin.py` (see [README.md](./README.md)) or use the web onboarding flow. Do not commit real credentials.
 
 **Optional:**
 
@@ -218,9 +218,7 @@ If you cannot use GitHub Actions, follow the exact sequence in [infra/aws/README
 1. Open `terraform output app_url` in a browser.  
 2. Check health: `curl -fsS "$(terraform output -raw api_health_url)"`  
    - Expect JSON with `"status":"ok"` and database connected.  
-3. Log in:
-   - Admin: see root [README.md](./README.md) or `login_info.txt` for demo accounts  
-   - Student: e.g. `yassine@enset.ma` / `Mizan@2026!`  
+3. Log in with an admin account created via `create_global_admin.py` or your school onboarding flow.
 4. Admin: add an exam or project with a **near deadline** → student should get notifications + agent task.  
 5. Student web: **Agent chat**, **Tasks**, **Notifications**.
 

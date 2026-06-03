@@ -13,7 +13,6 @@ export { NotificationsScreen } from "./notifications/NotificationsScreen";
 export { ProfileScreen } from "./profile/ProfileScreen";
 export { AgentChatScreen } from "./agent/AgentChatScreen";
 export { AgentContractsScreen } from "./agent/AgentContractsScreen";
-export { AgentScenariosScreen } from "./agent/AgentScenariosScreen";
 export { HistoryScreen } from "./history/HistoryScreen";
 export { WeeklyReportScreen } from "./history/WeeklyReportScreen";
 export { MoreScreen } from "./more/MoreScreen";

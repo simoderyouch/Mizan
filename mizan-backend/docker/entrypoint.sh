@@ -38,10 +38,5 @@ echo "Postgres is ready."
 echo "Running database migrations..."
 alembic upgrade heads
 
-if [ "${SEED_DEMO_DATA:-false}" = "true" ]; then
-  echo "Seeding demo presentation data when database is empty..."
-  python seed_presentation.py
-fi
-
 echo "Starting backend API..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000

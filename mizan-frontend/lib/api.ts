@@ -5,9 +5,6 @@ import type {
   AgentChatMessage,
   AgentChatResponse,
   AgentActionContract,
-  AgentTestRun,
-  AgentTestTriggerPayload,
-  AgentTestTriggerResponse,
   AgentPlanPayload,
   AgentPlanResponse,
   ApiErrorResponse,
@@ -672,10 +669,6 @@ export const agentApi = {
       url: "/agent/chat",
       data: { message, history: history.slice(-24) },
     }),
-  listTestRuns: (limit = 20) =>
-    request<AgentTestRun[]>({ method: "GET", url: buildPathWithQuery("/agent/test/runs", { limit }) }),
-  triggerTestRun: (payload: AgentTestTriggerPayload) =>
-    request<AgentTestTriggerResponse>({ method: "POST", url: "/agent/test/trigger", data: payload }),
   listContracts: (params?: { status?: string; limit?: number }) =>
     request<AgentActionContract[]>({
       method: "GET",
@@ -697,21 +690,6 @@ export const agentApi = {
       url: `/agent/contracts/${contractId}/complete`,
       data: { from_pending: options?.fromPending ?? false },
     }),
-  processFollowupsForTest: () =>
-    request<{ sent: number }>({
-      method: "POST",
-      url: "/agent/test/process-followups",
-    }),
-  testSummary: () =>
-    request<{
-      runs_count: number;
-      notifications_count: number;
-      contracts_count: number;
-      pending_contracts_count: number;
-      latest_run?: { id: string; status: string; trigger_type: string; created_at: string } | null;
-      latest_notification?: { id: string; type: string; title: string; created_at: string } | null;
-      latest_contract?: { id: string; status: string; adaptive_level: string; created_at: string } | null;
-    }>({ method: "GET", url: "/agent/test/summary" }),
 };
 
 export const globalApi = {

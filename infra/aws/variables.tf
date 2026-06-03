@@ -339,12 +339,6 @@ variable "smtp_password" {
   sensitive   = true
 }
 
-variable "seed_demo_data" {
-  type        = bool
-  description = "Seed demo school, students, and check-in data on first backend startup when the database is empty."
-  default     = true
-}
-
 variable "cloudfront_price_class" {
   type        = string
   description = "CloudFront price class. PriceClass_100 is the cheapest global option."

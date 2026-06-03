@@ -1,6 +1,8 @@
 # Mizan Backend
 
-Backend API for the Mizan student wellbeing platform, built with **FastAPI + SQLAlchemy (async) + PostgreSQL**.
+Backend API for the Mizan student wellbeing platform — **FastAPI + SQLAlchemy (async) + PostgreSQL**.
+
+Platform overview and diagrams: [../README.md](../README.md) · [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
 ## What this service does
 
@@ -338,22 +340,7 @@ Notification endpoints:
 - `PATCH /api/v1/notifications/{notification_id}/read` -> mark read/unread
 - `WS /api/v1/notifications/ws` -> authenticated realtime stream (query `?token=<jwt>` or `Authorization: Bearer <jwt>`)
 
-Agent test/support endpoints:
-
-- `GET /api/v1/agent/test/runs` -> recent autonomous runs + decisions for current student
-- `POST /api/v1/agent/test/trigger` -> manual autonomous trigger for validation
-- `GET /api/v1/agent/test/summary` -> quick counts and latest run/notification snapshot
-- `POST /api/v1/agent/test/process-followups` -> process due contract follow-ups now
-- `POST /api/v1/agent/test/trigger` supports forced scenarios via `event_type`:
-  - `FORCE_MODE_SWITCH`
-  - `FORCE_RESOURCE_NUDGE`
-  - `FORCE_ESCALATION`
-  - `FORCE_HIGH_STRESS_EXAM_CRUNCH`
-  - `FORCE_HIGH_STRESS_BURNOUT_RISK`
-  - `FORCE_HIGH_STRESS_OVERDUE_SPIRAL`
-  - `FORCE_AFTER_LUNCH_RESET`
-  - `FORCE_CHECKIN_REMINDER`
-  - Forced scenario runs bypass notification cooldown and task deduplication for deterministic validation outcomes.
+Agent test endpoints (development): `/api/v1/agent/test/*` — manual triggers and run inspection. See OpenAPI `/docs`.
 
 Action contract endpoints:
 

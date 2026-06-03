@@ -31,7 +31,6 @@ import {
 import {
   AgentChatScreen,
   AgentContractsScreen,
-  AgentScenariosScreen,
   CheckinHubScreen,
   DashboardScreen,
   EveningCheckinScreen,
@@ -320,7 +319,6 @@ function MainNavigator() {
       <MainStack.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
       <MainStack.Screen name="AgentChat" component={AgentChatScreen} options={{ headerShown: false }} />
       <MainStack.Screen name="AgentContracts" component={AgentContractsScreen} options={{ title: "Commitments" }} />
-      <MainStack.Screen name="AgentScenarios" component={AgentScenariosScreen} options={{ title: "Scenarios" }} />
       <MainStack.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
       <MainStack.Screen name="WeeklyReport" component={WeeklyReportScreen} options={{ title: "Report" }} />
       <MainStack.Screen name="Goals" component={GoalsScreen} options={{ title: "Goals" }} />

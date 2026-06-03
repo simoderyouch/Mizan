@@ -18,7 +18,6 @@ export {
   ProfileScreen,
   AgentChatScreen,
   AgentContractsScreen,
-  AgentScenariosScreen,
   HistoryScreen,
   WeeklyReportScreen,
   ScheduleWeekScreen,

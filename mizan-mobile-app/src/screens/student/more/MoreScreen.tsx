@@ -7,7 +7,6 @@ import {
   FileText,
   History,
   ShieldCheck,
-  Sparkles,
   Target,
   User,
 } from "lucide-react-native";
@@ -31,9 +30,6 @@ export function MoreScreen({ navigation }: { navigation: Nav }) {
       <Card style={styles.gapCard}>
         <Text style={uiStyles.h2}>AI Agent</Text>
         <RowAction icon={ShieldCheck} title="Agent contracts" subtitle="Mizan AI commitments." onPress={() => navigation.navigate("AgentContracts")} />
-        {__DEV__ ? (
-          <RowAction icon={Sparkles} title="Agent scenarios" subtitle="Orchestration tests." onPress={() => navigation.navigate("AgentScenarios")} />
-        ) : null}
         <RowAction icon={BookOpen} title="Resources" subtitle="Curated content." onPress={() => navigation.navigate("Resources")} />
       </Card>
 
