@@ -53,7 +53,7 @@ Use a password you are comfortable sharing with reviewers on **staging only**. N
 
 ## Login accounts
 
-All accounts use **`SAMPLE_DATA_PASSWORD`**.
+All accounts use **`MizanStaging2026`**.
 
 | Email | Role | Persona |
 |-------|------|---------|
