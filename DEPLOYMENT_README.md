@@ -38,8 +38,8 @@ flowchart TB
   Browser --> CF
   Phone --> CF
   CF --> ALB
-  ALB -->|"/api/v1/*" "/health" "/docs"| BE
-  ALB -->|"/*" static + SSR| FE
+  ALB -->|API paths| BE
+  ALB -->|Web app| FE
   BE --> RDS
   BE --> SM
   BE --> Mistral
@@ -57,11 +57,57 @@ flowchart TB
 flowchart LR
   User[Client] --> CF[CloudFront]
   CF --> ALB[ALB]
-  ALB -->|"/api/v1/*" "/health" "/docs" "/openapi.json"| API[Backend ECS]
-  ALB -->|all other paths| Web[Frontend ECS]
+  ALB -->|API paths| API[Backend ECS]
+  ALB -->|Web UI| Web[Frontend ECS]
 ```
 
+**ALB path rules**
+
+| Path prefix | Target |
+|-------------|--------|
+| `/api/v1/*`, `/health`, `/docs`, `/openapi.json` | Backend (FastAPI) |
+| All other paths | Frontend (Next.js) |
+
 Mobile and web clients use the **same origin** (CloudFront URL or custom domain). API base path: `/api/v1` (appended by clients). WebSocket voice: `wss://<host>/api/v1/voice/realtime`.
+
+---
+
+## Database and users
+
+### Always on container start
+
+| Seeded automatically | Not seeded by default |
+|----------------------|------------------------|
+| Schema (Alembic) | — |
+| Default wellbeing **resources** (if table empty) | Schools, students, check-ins |
+
+### Option A — Full sample dataset (staging / demo / video)
+
+**Automatic on push to `main` (recommended):**
+
+| GitHub | Value |
+|--------|--------|
+| Variable `SEED_SAMPLE_DATA_ENABLED` | `true` |
+| Secret `SAMPLE_DATA_PASSWORD` | staging password (min 8 chars) |
+
+The deploy workflow seeds via ECS after health check (and backend entrypoint seeds on empty DB). Details: **[docs/SAMPLE_DATA.md](./docs/SAMPLE_DATA.md)**.
+
+**Manual** (if RDS is reachable from your machine):
+
+```bash
+export DATABASE_URL="postgresql+asyncpg://..."
+export SAMPLE_DATA_PASSWORD="YourStagingPassword8+"
+./scripts/seed-sample-data.sh
+```
+
+Skips if users already exist.
+
+### Option B — Production-style bootstrap
+
+1. **Global admin:** `ADMIN_EMAIL` + `ADMIN_PASSWORD` → `python create_global_admin.py`
+2. **Schools & students:** web onboarding + CSV import (SMTP optional for activation)
+
+Do **not** run sample seed on production with real student data.
 
 ---
 
@@ -123,7 +169,8 @@ Workflow file: [.github/workflows/ci-cd.yml](./.github/workflows/ci-cd.yml). Dep
 | `MISTRAL_API_KEY` | For AI features | Check-ins, agent, voice |
 | `CLOUDINARY_*` | Optional | Profile photos |
 | `SMTP_USER` / `SMTP_PASSWORD` | Optional | Account activation / password reset |
-| `APP_PUBLIC_URL` | Optional | Custom domain (`https://app.yourschool.com`) |
+| `APP_PUBLIC_URL` | Optional | Custom domain host only — requests ACM cert (`https://mizan.example.com`) |
+| `CLOUDFRONT_ATTACH_CUSTOM_DOMAIN` (variable) | After DNS fix | Set `true` when CNAME points at **this** stack's `*.cloudfront.net` hostname |
 
 ---
 
@@ -255,6 +302,7 @@ If CI is unavailable, follow the two-phase image build in [infra/aws/README.md](
 | Student check-in | Morning or evening ritual persists |
 | Agent path | Chat or check-in may create notification + task |
 | Secrets | `MISTRAL_API_KEY` present in Secrets Manager for AI paths |
+| Sample data (optional) | `./scripts/seed-sample-data.sh` then login as `yassine@enset.ma` — [SAMPLE_DATA.md](./docs/SAMPLE_DATA.md) |
 
 Frontend build args (set automatically in CI on second build):
 

@@ -202,10 +202,14 @@ Use the institutional onboarding flow in the web app, or run once (with DB reach
 
 ```bash
 cd mizan-backend
+export ADMIN_EMAIL="admin@your-org.com"
+export ADMIN_PASSWORD="your-strong-password"
 python create_global_admin.py
 ```
 
 Do **not** commit real credentials. Rotate `SECRET_KEY` and passwords in any shared environment.
+
+**Staging demo data:** after deploy, run `./scripts/seed-sample-data.sh` (see [docs/SAMPLE_DATA.md](./docs/SAMPLE_DATA.md)). Production uses [DEPLOYMENT_README.md](./DEPLOYMENT_README.md) bootstrap flows instead.
 
 ---
 

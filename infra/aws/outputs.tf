@@ -91,14 +91,17 @@ output "dns_setup_instructions" {
     ],
     [
       "",
-      "Step 2 — Point subdomain to CloudFront (after ACM cert is Issued):",
+      "Step 2 — Point subdomain to THIS distribution (required before custom HTTPS alias):",
       "  Type: CNAME",
       "  Host: subdomain label only (e.g. mizan for ${var.app_domain})",
       "  Value: ${aws_cloudfront_distribution.app.domain_name}",
+      "  Remove any old CNAME pointing at another CloudFront distribution.",
       "",
-      "Step 3 — Test: https://${var.app_domain}/health",
+      "Step 3 — Test: https://${var.app_domain}/health (may work only after Step 4).",
       "",
-      "Step 4 — Re-run GitHub Actions deploy after ACM shows Issued (custom domain attaches automatically).",
+      "Step 4 — Enable alias attach, then redeploy:",
+      "  GitHub variable CLOUDFRONT_ATTACH_CUSTOM_DOMAIN=true",
+      "  (or terraform -var='attach_cloudfront_custom_domain=true')",
     ]
   )) : "No custom domain configured. Use app_url (CloudFront URL)."
   description = "Human-readable DNS steps for Namecheap."
@@ -137,4 +140,14 @@ output "frontend_ecs_service_name" {
 output "rds_endpoint" {
   value       = aws_db_instance.postgres.address
   description = "Private RDS endpoint."
+}
+
+output "ecs_security_group_id" {
+  value       = aws_security_group.ecs.id
+  description = "Security group for ECS run-task / services (VPC access to RDS)."
+}
+
+output "vpc_subnet_ids" {
+  value       = local.subnet_ids
+  description = "Subnet IDs used by ECS tasks (for one-off seed run-task)."
 }

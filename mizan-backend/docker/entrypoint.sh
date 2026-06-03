@@ -38,5 +38,10 @@ echo "Postgres is ready."
 echo "Running database migrations..."
 alembic upgrade heads
 
+if [ "${SEED_SAMPLE_DATA:-false}" = "true" ] && [ -n "${SAMPLE_DATA_PASSWORD:-}" ]; then
+  echo "Seeding sample data when database has no users..."
+  python seed_sample_database.py || echo "Sample seed skipped or failed (see logs)."
+fi
+
 echo "Starting backend API..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000

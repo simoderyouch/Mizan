@@ -36,8 +36,14 @@ variable "api_public_url" {
 
 variable "app_domain" {
   type        = string
-  description = "Optional custom app subdomain for CloudFront + ACM, e.g. mizan.example.com. Add DNS in Namecheap using terraform outputs."
+  description = "Optional custom app subdomain for CloudFront + ACM, e.g. mizan.example.com. Request certificate only until DNS is ready."
   default     = ""
+}
+
+variable "attach_cloudfront_custom_domain" {
+  type        = bool
+  description = "Set true only after the app_domain CNAME in DNS points at THIS stack's cloudfront_distribution_domain_name. Prevents CNAMEAlreadyExists during deploy."
+  default     = false
 }
 
 variable "backend_container_port" {
@@ -361,4 +367,17 @@ variable "force_delete_ecr" {
   type        = bool
   description = "Allow Terraform destroy to delete non-empty ECR repository."
   default     = true
+}
+
+variable "seed_sample_data" {
+  type        = bool
+  description = "When true and sample_data_password is set, backend seeds realistic demo data on empty databases (staging only)."
+  default     = false
+}
+
+variable "sample_data_password" {
+  type        = string
+  description = "Shared password for sample accounts. Leave empty to disable seeding."
+  default     = ""
+  sensitive   = true
 }

@@ -49,8 +49,9 @@ locals {
   # API always uses CloudFront; custom domain is frontend-only (browser URL + CORS).
   effective_api_url          = var.api_public_url != "" ? trim(var.api_public_url, "/") : local.cloudfront_public_origin
   public_origin              = local.custom_public_origin != "" ? local.custom_public_origin : local.cloudfront_public_origin
-  app_domain_cert_issued     = var.app_domain != "" && length(aws_acm_certificate.app) > 0 && aws_acm_certificate.app[0].status == "ISSUED"
-  use_custom_cloudfront_domain = local.app_domain_cert_issued
+  app_domain_cert_issued = var.app_domain != "" && length(aws_acm_certificate.app) > 0 && aws_acm_certificate.app[0].status == "ISSUED"
+  # Certificate can be ISSUED before DNS targets this distribution — attach alias only when opted in.
+  use_custom_cloudfront_domain = var.attach_cloudfront_custom_domain && local.app_domain_cert_issued && var.app_domain != ""
   frontend_build_api_url           = "same-origin"
   frontend_build_backend_origin    = local.cloudfront_public_origin
   backend_cors_origins     = join(",", compact([
@@ -58,6 +59,7 @@ locals {
     local.custom_public_origin != "" ? local.custom_public_origin : "",
   ]))
   database_url      = "postgresql+asyncpg://${var.db_username}:${random_password.db_password.result}@${aws_db_instance.postgres.address}:5432/${var.db_name}"
+  enable_sample_seed = var.seed_sample_data && var.sample_data_password != ""
 
   common_tags = {
     Project     = var.project_name
@@ -104,6 +106,8 @@ locals {
     SMTP_PORT                        = tostring(var.smtp_port)
     SMTP_USER                        = var.smtp_user
     SMTP_PASSWORD                    = var.smtp_password
+    SEED_SAMPLE_DATA                 = local.enable_sample_seed ? "true" : "false"
+    SAMPLE_DATA_PASSWORD             = var.sample_data_password
   }
 }
 
